@@ -15,9 +15,17 @@ pwsh -File .\scripts\windows\verify.ps1
 
 This loads `configs/litellm/model-probe.yaml`. It contains only direct ChatGPT subscription routes; there is no `auto_router/complexity_router` deployment.
 
-## 2. Scope a temporary K3 virtual key
+## 2. Provision the K3 virtual key
 
-Create a LiteLLM virtual key that allows exactly:
+Run:
+
+```powershell
+pwsh -File .\scripts\windows\provision-codex-key.ps1 -Profile k3
+```
+
+The helper replaces only the `LITELLM_API_KEY` line in `%USERPROFILE%\.codex\.env`, preserves other variables, and verifies the returned allowlist before writing it. It never writes the LiteLLM master key to the Codex directory.
+
+The K3 allowlist is exactly:
 
 - `gpt-6.1-sol`
 - `gpt-6-luna`
@@ -25,8 +33,6 @@ Create a LiteLLM virtual key that allows exactly:
 - `gpt-6-sol`
 - `gpt-6-astra`
 - `codex-*`
-
-Store the virtual key as `LITELLM_API_KEY` in `%USERPROFILE%\.codex\.env`. Never place the LiteLLM master key there.
 
 ## 3. Direct model probes
 
