@@ -279,3 +279,12 @@ def test_k5_does_not_claim_generic_posttooluse_failure_detection():
     assert 'issue #34289' in text
     assert 'fresh' in text
     assert 'rounds 4–5' in text
+
+
+def test_windows_verify_accepts_key_from_codex_dotenv():
+    text = (ROOT / 'scripts/windows/verify.ps1').read_text()
+    assert "[string]$CodexHome" in text
+    assert "$CodexEnvFile = Join-Path $CodexHome '.env'" in text
+    assert "Get-Content -Path $CodexEnvFile" in text
+    assert "LITELLM_API_KEY=" in text
+    assert "process environment only" not in text.lower()
