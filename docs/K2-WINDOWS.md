@@ -67,7 +67,7 @@ requires_openai_auth = true
 env_http_headers = { "x-litellm-api-key" = "LITELLM_API_KEY" }
 ```
 
-The helper never writes `env_key` and never reads or changes `auth.json`. Leaving `env_key` unset is what lets Codex keep its own ChatGPT `Authorization` credential while the LiteLLM virtual key travels separately in `x-litellm-api-key`.
+**Do not set `env_key`.** The helper never writes it and never reads or changes `auth.json`. Leaving `env_key` unset is what lets Codex keep its own ChatGPT `Authorization` credential while the LiteLLM virtual key travels separately in `x-litellm-api-key`.
 
 Fully restart Codex Windows App after this step.
 
