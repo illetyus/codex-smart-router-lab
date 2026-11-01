@@ -25,6 +25,7 @@ def _effort(value):
 def inspect_rollout(path: Path):
     meta = {}
     turn = {}
+    turns = []
     for raw in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         try:
             item = json.loads(raw)
@@ -36,6 +37,13 @@ def inspect_rollout(path: Path):
             meta = _meta(payload)
         elif kind == "turn_context":
             turn = payload
+            turns.append({
+                "ordinal": item.get("ordinal"),
+                "turn_id": payload.get("turn_id"),
+                "root_turn_id": payload.get("root_turn_id"),
+                "model": payload.get("model"),
+                "effort": _effort(payload.get("effort")),
+            })
 
     if not meta and not turn:
         return None
@@ -60,6 +68,7 @@ def inspect_rollout(path: Path):
         "effort": _effort(turn.get("effort")),
         "turn_id": turn.get("turn_id"),
         "root_turn_id": turn.get("root_turn_id"),
+        "turns": turns,
     }
 
 
@@ -70,7 +79,7 @@ def collect(root: Path):
         if row:
             sessions.append(row)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "sessions_root": str(root),
         "sessions": sessions,
     }
