@@ -356,3 +356,26 @@ def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
     assert 'LITELLM_API_KEY=' in text
     assert "-Name 'LITELLM_MASTER_KEY'" in text
     assert '$replacement = "LITELLM_API_KEY=$virtualKey"' in text
+
+
+def test_windows_codex_provider_configurator_and_restore_contract():
+    configure = ROOT / 'scripts/windows/configure-codex-provider.ps1'
+    restore = ROOT / 'scripts/windows/restore-codex-provider.ps1'
+    assert configure.exists(), 'missing Codex provider configurator'
+    assert restore.exists(), 'missing Codex provider restore helper'
+
+    c = configure.read_text()
+    assert "config.toml.pre-litellm-backup" in c
+    assert 'model_provider = "litellm_subscription"' in c
+    assert '[model_providers.litellm_subscription]' in c
+    assert 'base_url = "http://localhost:4000/v1"' in c
+    assert 'wire_api = "responses"' in c
+    assert 'requires_openai_auth = true' in c
+    assert 'x-litellm-api-key' in c
+    assert 'env_key' not in c
+    assert 'auth.json' not in c
+
+    r = restore.read_text()
+    assert "config.toml.pre-litellm-backup" in r
+    assert ".env.pre-litellm-backup" in r
+    assert 'auth.json' not in r

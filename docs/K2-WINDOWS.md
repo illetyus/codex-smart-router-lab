@@ -45,30 +45,19 @@ Why `codex-*` is required: Codex can issue approval/review requests such as `cod
 
 Do not put the LiteLLM master key in the Codex `.env` file. The local dashboard can still be used as a manual fallback, but the scripted path is the repeatable installation path.
 
-## 3. Back up Codex configuration
+## 3. Configure the Codex provider with rollback
 
-Before changing the provider:
+Close Codex App, then run:
 
 ```powershell
-$codex = Join-Path $env:USERPROFILE '.codex'
-Copy-Item "$codex\config.toml" "$codex\config.toml.pre-litellm-backup" -Force
+pwsh -File .\scripts\windows\configure-codex-provider.ps1
 ```
 
-The ChatGPT auth files are not copied or modified by this project.
-
-## 4. Connect Codex Windows App
-
-Open `%USERPROFILE%\.codex\config.toml` (or Settings → Configuration → Open config.toml in Codex App).
-
-Keep the existing model and reasoning settings. Set the top-level provider:
+The helper creates `%USERPROFILE%\.codex\config.toml.pre-litellm-backup` once, preserves existing model/reasoning/features settings, replaces only the top-level `model_provider`, removes any older duplicate LiteLLM provider table, and writes exactly one tested provider block:
 
 ```toml
 model_provider = "litellm_subscription"
-```
 
-Add:
-
-```toml
 [model_providers.litellm_subscription]
 name = "LiteLLM subscription"
 base_url = "http://localhost:4000/v1"
@@ -78,9 +67,9 @@ requires_openai_auth = true
 env_http_headers = { "x-litellm-api-key" = "LITELLM_API_KEY" }
 ```
 
-**Do not set `env_key`.** Leaving it unset is what keeps Codex's ChatGPT `Authorization` credential instead of replacing it with the LiteLLM virtual key.
+**Do not set `env_key`.** The helper never writes it and never reads or changes `auth.json`. Leaving `env_key` unset is what lets Codex keep its own ChatGPT `Authorization` credential while the LiteLLM virtual key travels separately in `x-litellm-api-key`.
 
-Fully restart Codex Windows App after changing either `config.toml` or `%USERPROFILE%\.codex\.env`.
+Fully restart Codex Windows App after this step.
 
 ## 5. Exact live probe
 
@@ -114,15 +103,16 @@ K2 is **not** complete if any of the following occurs:
 
 ## 7. Rollback proof
 
-Close Codex App, restore the backup, stop the local gateway, then restart Codex:
+Close Codex App, restore the pre-LiteLLM Codex configuration and dotenv, then stop the local gateway:
 
 ```powershell
-$codex = Join-Path $env:USERPROFILE '.codex'
-Copy-Item "$codex\config.toml.pre-litellm-backup" "$codex\config.toml" -Force
+pwsh -File .\scripts\windows\restore-codex-provider.ps1
 pwsh -File .\scripts\windows\uninstall.ps1
 ```
 
-A direct Codex chat must work again before K2 is marked complete.
+The restore helper copies the original `config.toml` backup back byte-for-byte. If a pre-LiteLLM `.env` backup exists it restores that too; otherwise it removes only the `LITELLM_API_KEY` line. It never modifies ChatGPT authentication files.
+
+Restart Codex and prove a direct Codex chat works again before K2 is marked complete.
 
 ## Sources
 
