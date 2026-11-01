@@ -216,10 +216,10 @@ def test_supply_chain_refs_are_immutable():
     for workflow in ('.github/workflows/ci.yml', '.github/workflows/heavy-smoke.yml'):
         text = (ROOT / workflow).read_text()
         assert 'actions/checkout@v4' not in text
-        assert 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' in text
+        assert 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' in text
     ci = (ROOT / '.github/workflows/ci.yml').read_text()
     assert 'actions/setup-python@v5' not in ci
-    assert 'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065' in ci
+    assert 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0' in ci
 
 
 def test_upstream_lock_pins_codex_and_superpowers_evidence():
