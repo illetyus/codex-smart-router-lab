@@ -304,3 +304,38 @@ def test_heavy_smoke_proves_restricted_k2_virtual_key_contract():
     assert '/responses' not in text
     workflow = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
     assert 'python tools/k2_key_smoke.py' in workflow
+
+
+def test_k3_model_probe_mode_exists_before_autorouter():
+    probe_path = ROOT / 'configs/litellm/model-probe.yaml'
+    assert probe_path.exists(), 'missing router-free K3 model probe config'
+    cfg = yaml.safe_load(probe_path.read_text())
+    routes = {m['model_name']: m['litellm_params']['model'] for m in cfg['model_list']}
+    assert routes == {
+        'gpt-6.1-sol': 'chatgpt/gpt-6.1-sol',
+        'gpt-6-luna': 'chatgpt/gpt-6-luna',
+        'gpt-6.1-terra': 'chatgpt/gpt-6.1-terra',
+        'gpt-6-sol': 'chatgpt/gpt-6-sol',
+        'gpt-6-astra': 'chatgpt/gpt-6-astra',
+        'codex-*': 'chatgpt/codex-*',
+    }
+    serialized = json.dumps(cfg)
+    assert 'auto_router/' not in serialized
+    assert 'openai/' not in serialized
+    assert 'OPENAI_API_KEY' not in serialized
+
+    installer = (ROOT / 'scripts/windows/install.ps1').read_text()
+    assert "ValidateSet('subscription','model-probe','autorouter')" in installer
+    assert "'model-probe' { 'model-probe.yaml' }" in installer
+
+    heavy = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert 'Restart with router-free model probe config' in heavy
+    assert 'CODEX_ROUTER_CONFIG=model-probe.yaml' in heavy
+    assert (ROOT / 'docs/K3-MODEL-PROBE.md').exists()
+
+
+def test_heavy_smoke_serializes_expensive_source_builds():
+    text = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert 'concurrency:' in text
+    assert 'group: codex-smart-router-heavy-smoke' in text
+    assert 'cancel-in-progress: true' in text

@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('subscription','autorouter')]
+    [ValidateSet('subscription','model-probe','autorouter')]
     [string]$Mode = 'subscription'
 )
 
@@ -26,7 +26,11 @@ if (-not (Test-Path $EnvFile)) {
     ) | Set-Content -Path $EnvFile -Encoding utf8NoBOM
 }
 
-$config = if ($Mode -eq 'autorouter') { 'autorouter.yaml' } else { 'subscription.yaml' }
+$config = switch ($Mode) {
+    'subscription' { 'subscription.yaml' }
+    'model-probe' { 'model-probe.yaml' }
+    'autorouter' { 'autorouter.yaml' }
+}
 $env:CODEX_ROUTER_CONFIG = $config
 
 if ($PSCmdlet.ShouldProcess('local Docker stack', "build and start LiteLLM in $Mode mode")) {
