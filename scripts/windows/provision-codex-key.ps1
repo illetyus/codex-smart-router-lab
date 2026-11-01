@@ -2,12 +2,29 @@
 param(
     [ValidateSet('k2','k3','runtime')]
     [string]$Profile = 'k2',
+    [string]$Duration = '30d',
     [string]$BaseUrl = 'http://127.0.0.1:4000',
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [string]$CodexHome = (Join-Path $env:USERPROFILE '.codex')
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Protect-SecretFile([string]$Path) {
+    $acl = Get-Acl -LiteralPath $Path
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($rule in @($acl.Access)) {
+        [void]$acl.RemoveAccessRuleAll($rule)
+    }
+    $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+        $sid,
+        [System.Security.AccessControl.FileSystemRights]::FullControl,
+        [System.Security.AccessControl.AccessControlType]::Allow
+    )
+    [void]$acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $Path -AclObject $acl
+}
 
 function Get-DotEnvValue {
     param(
@@ -50,6 +67,7 @@ $masterHeaders = @{ Authorization = "Bearer $masterKey" }
 $body = @{
     key_alias = "codex-$Profile"
     models = $models
+    duration = $Duration
 } | ConvertTo-Json -Depth 10
 
 $created = Invoke-RestMethod -Method Post -Uri "$base/key/generate" -Headers $masterHeaders -ContentType 'application/json' -Body $body -TimeoutSec 30
@@ -104,6 +122,7 @@ if (-not $found) {
 
 if ($PSCmdlet.ShouldProcess($codexEnv, "store restricted LiteLLM $Profile virtual key")) {
     $updated | Set-Content -LiteralPath $codexEnv -Encoding utf8NoBOM
+    Protect-SecretFile -Path $codexEnv
     $appliedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $codexEnv).Hash
     Set-Content -LiteralPath (Join-Path $CodexHome '.env.pre-litellm-applied.sha256') -Value $appliedHash -Encoding ascii
 }
@@ -113,4 +132,5 @@ if ($PSCmdlet.ShouldProcess($codexEnv, "store restricted LiteLLM $Profile virtua
     Models = $expectedModels
     CodexEnv = $codexEnv
     BackupCreated = (Test-Path -LiteralPath $backup)
+    Duration = $Duration
 } | ConvertTo-Json -Compress
