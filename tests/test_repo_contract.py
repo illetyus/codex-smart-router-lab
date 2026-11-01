@@ -339,3 +339,20 @@ def test_heavy_smoke_serializes_expensive_source_builds():
     assert 'concurrency:' in text
     assert 'group: codex-smart-router-heavy-smoke' in text
     assert 'cancel-in-progress: true' in text
+
+
+def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
+    path = ROOT / 'scripts/windows/provision-codex-key.ps1'
+    assert path.exists(), 'missing Windows Codex key provisioner'
+    text = path.read_text()
+    assert "[ValidateSet('k2','k3')]" in text
+    assert "'gpt-6.1-sol', 'codex-*'" in text
+    for model in ('gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra'):
+        assert model in text
+    assert '/key/generate' in text
+    assert '/key/info' in text
+    assert 'Write-Host $virtualKey' not in text
+    assert 'Write-Output $virtualKey' not in text
+    assert 'LITELLM_API_KEY=' in text
+    assert "-Name 'LITELLM_MASTER_KEY'" in text
+    assert '$replacement = "LITELLM_API_KEY=$virtualKey"' in text
