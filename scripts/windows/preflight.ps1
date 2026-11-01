@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$CodexHome = (Join-Path $env:USERPROFILE '.codex')
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -11,17 +13,19 @@ $checks = [ordered]@{}
 $checks['Windows'] = $IsWindows -or $env:OS -eq 'Windows_NT'
 $checks['DockerCLI'] = Test-Command 'docker'
 $checks['Git'] = Test-Command 'git'
-$checks['CodexHome'] = Test-Path (Join-Path $env:USERPROFILE '.codex')
+$checks['CodexHome'] = Test-Path -LiteralPath $CodexHome
+$checks['CodexConfig'] = Test-Path -LiteralPath (Join-Path $CodexHome 'config.toml')
 
 if ($checks['DockerCLI']) {
-    try {
-        docker version --format '{{.Server.Version}}' | Out-Null
-        $checks['DockerDaemon'] = $true
-    } catch {
-        $checks['DockerDaemon'] = $false
-    }
-} else {
+    & docker version --format '{{.Server.Version}}' *> $null
+    $checks['DockerDaemon'] = $LASTEXITCODE -eq 0
+
+    & docker compose version *> $null
+    $checks['DockerCompose'] = $LASTEXITCODE -eq 0
+}
+else {
     $checks['DockerDaemon'] = $false
+    $checks['DockerCompose'] = $false
 }
 
 $checks.GetEnumerator() | ForEach-Object {
