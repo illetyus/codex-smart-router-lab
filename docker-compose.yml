@@ -9,7 +9,7 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY in .env}
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?set LITELLM_SALT_KEY in .env}
       DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/litellm
-      STORE_MODEL_IN_DB: "True"
+      STORE_MODEL_IN_DB: "False"
     volumes:
       - ./configs/litellm:/app/configs/litellm:ro
     command: ["--config=/app/configs/litellm/${CODEX_ROUTER_CONFIG:-subscription.yaml}", "--port", "4000"]
