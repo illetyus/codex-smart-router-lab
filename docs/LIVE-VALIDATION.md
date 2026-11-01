@@ -27,7 +27,7 @@ Run one explicit worker per role and save `evidence/subagent-evidence.json`. Inc
 Use `fixtures/escalation_lab` as the deterministic failure fixture. The command:
 
 ```powershell
-python -m pytest -q fixtures/escalation_lab/fixture_test.py
+python -m pytest -q fixtures/escalation_lab/failure_case.py
 ```
 
 must start with exactly one failing test, `test_discount_rounding_boundary`. Exercise the documented Superpowers fix loop and save `evidence/escalation-evidence.json` with rounds, worker identities, model/effort, failing-test evidence, fresh-worker promotion, and breaker outcome.
