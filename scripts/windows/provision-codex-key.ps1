@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('k2','k3')]
+    [ValidateSet('k2','k3','runtime')]
     [string]$Profile = 'k2',
     [string]$BaseUrl = 'http://127.0.0.1:4000',
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
@@ -40,8 +40,9 @@ if (-not $masterKey.StartsWith('sk-')) {
 }
 
 $models = switch ($Profile) {
-    'k2' { @('gpt-6.1-sol', 'codex-*') }
-    'k3' { @('gpt-6.1-sol', 'gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra', 'codex-*') }
+    'k2' { @('gpt-6.1-sol', 'gpt-image-2', 'codex-*') }
+    'k3' { @('gpt-6.1-sol', 'gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra', 'gpt-image-2', 'codex-*') }
+    'runtime' { @('gpt-6.1-sol', 'gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra', 'gpt-image-2', 'codex-*') }
 }
 
 $base = $BaseUrl.TrimEnd('/')
@@ -58,7 +59,8 @@ if ([string]::IsNullOrWhiteSpace($virtualKey) -or -not $virtualKey.StartsWith('s
     throw 'LiteLLM did not return a virtual key.'
 }
 
-$keyInfo = Invoke-RestMethod -Method Get -Uri "$base/key/info" -Headers @{ Authorization = "Bearer $virtualKey" } -TimeoutSec 30
+$encodedVirtualKey = [uri]::EscapeDataString($virtualKey)
+$keyInfo = Invoke-RestMethod -Method Get -Uri "$base/key/info?key=$encodedVirtualKey" -Headers $masterHeaders -TimeoutSec 30
 
 $actualModels = @($keyInfo.info.models | ForEach-Object { [string]$_ } | Sort-Object)
 $expectedModels = @($models | Sort-Object)
