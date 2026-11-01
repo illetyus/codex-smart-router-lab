@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from urllib.parse import urlencode
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 EXPECTED_MODELS = {"gpt-6.1-sol", "gpt-image-2", "codex-*"}
@@ -35,9 +35,9 @@ def generate_key(base_url: str, master_key: str) -> str:
 
 
 def verify_key_models(base_url: str, master_key: str, virtual_key: str) -> None:
-    query = urlencode({"key": virtual_key})
+    encoded_key = quote(virtual_key, safe="")
     data = request_json(
-        f"{base_url.rstrip('/')}/key/info?{query}",
+        f"{base_url.rstrip('/')}/key/info?key={encoded_key}",
         bearer=master_key,
     )
     info = data.get("info")
