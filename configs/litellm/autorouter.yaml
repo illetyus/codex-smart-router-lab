@@ -47,5 +47,12 @@ model_list:
     model_info:
       mode: responses
 
+  # Keep Codex approval/review traffic on the caller's ChatGPT subscription too.
+  - model_name: codex-*
+    litellm_params:
+      model: chatgpt/codex-*
+    model_info:
+      mode: responses
+
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

@@ -14,7 +14,7 @@ def test_required_files_exist():
         'configs/codex/provider.subscription.toml',
         'scripts/windows/preflight.ps1', 'scripts/windows/install.ps1',
         'scripts/windows/verify.ps1', 'scripts/windows/uninstall.ps1',
-        '.github/workflows/ci.yml', 'tools/validate_repo.py',
+        '.github/workflows/ci.yml', 'tools/validate_repo.py', 'docs/K2-WINDOWS.md',
     ]
     missing = [p for p in required if not (ROOT / p).exists()]
     assert not missing, f'missing: {missing}'
@@ -37,11 +37,11 @@ def test_compose_uses_pinned_litellm_source_ref():
 def test_subscription_baseline_is_one_explicit_chatgpt_model_with_no_paid_fallback():
     cfg = yaml.safe_load((ROOT / 'configs/litellm/subscription.yaml').read_text())
     models = cfg['model_list']
-    assert models == [{
-        'model_name': 'gpt-6.1-sol',
-        'litellm_params': {'model': 'chatgpt/gpt-6.1-sol'},
-        'model_info': {'mode': 'responses'},
-    }]
+    routes = {m['model_name']: m['litellm_params']['model'] for m in models}
+    assert routes == {
+        'gpt-6.1-sol': 'chatgpt/gpt-6.1-sol',
+        'codex-*': 'chatgpt/codex-*',
+    }
     serialized = json.dumps(cfg)
     assert 'openai/' not in serialized
     assert 'OPENAI_API_KEY' not in serialized
@@ -64,7 +64,7 @@ def test_autorouter_shadows_known_codex_slug_and_uses_current_chatgpt_models():
         'REASONING': 'astra-upstream',
     }
     assert router['litellm_params']['complexity_router_default_model'] == 'terra-upstream'
-    upstreams = [x for x in models if x is not router]
+    upstreams = [x for x in models if x is not router and x['model_name'] != 'codex-*']
     actual = {x['model_name']: x['litellm_params']['model'] for x in upstreams}
     assert actual == {
         'luna-upstream': 'chatgpt/gpt-6-luna',
@@ -183,3 +183,20 @@ def test_ci_compose_render_supplies_disposable_required_env():
     assert 'LITELLM_SALT_KEY=sk-ci-render-salt-only' in text
     assert 'POSTGRES_PASSWORD=ci-render-only' in text
     assert 'docker compose config --quiet' in text
+
+
+def test_subscription_and_autorouter_preserve_codex_review_passthrough():
+    sub = yaml.safe_load((ROOT / 'configs/litellm/subscription.yaml').read_text())
+    auto = yaml.safe_load((ROOT / 'configs/litellm/autorouter.yaml').read_text())
+    for cfg in (sub, auto):
+        routes = {m['model_name']: m['litellm_params']['model'] for m in cfg['model_list']}
+        assert routes['codex-*'] == 'chatgpt/codex-*'
+
+
+def test_k2_runbook_restricts_key_to_baseline_and_review_routes():
+    text = (ROOT / 'docs/K2-WINDOWS.md').read_text()
+    assert 'gpt-6.1-sol' in text
+    assert 'codex-*' in text
+    assert 'Do not set `env_key`' in text
+    assert 'OPENAI_API_KEY' in text
+    assert 'Reply with exactly Hello. Do not use tools.' in text

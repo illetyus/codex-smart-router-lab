@@ -27,9 +27,16 @@ def validate() -> list[str]:
         errors.append("Paid OpenAI API fallback must remain disabled")
     if "CHATGPT_TOKEN_DIR" in sub_text or "auth.json" in sub_text:
         errors.append("Baseline must use Codex-forwarded ChatGPT auth, not a saved proxy login")
+    sub_routes = {m["model_name"]: m["litellm_params"].get("model") for m in sub["model_list"]}
+    if sub_routes.get("codex-*") != "chatgpt/codex-*":
+        errors.append("Baseline must preserve codex-* approval/review passthrough")
 
     auto = yaml.safe_load((ROOT / "configs/litellm/autorouter.yaml").read_text())
-    routers = [m for m in auto["model_list"] if m["model_name"] == "gpt-6.1-sol" and m["litellm_params"].get("model") == "auto_router/complexity_router"]
+    routers = [
+        m for m in auto["model_list"]
+        if m["model_name"] == "gpt-6.1-sol"
+        and m["litellm_params"].get("model") == "auto_router/complexity_router"
+    ]
     if len(routers) != 1:
         errors.append("Auto Router must shadow the known gpt-6.1-sol Codex slug exactly once")
         return errors
@@ -47,11 +54,19 @@ def validate() -> list[str]:
     }
     if rcfg.get("tiers") != expected_tiers:
         errors.append("Auto Router tiers do not match the reviewed Luna/Terra/Sol/Astra ladder")
+
     upstream_models = {
         m["model_name"]: m["litellm_params"].get("model")
         for m in auto["model_list"]
-        if m is not router
+        if m is not router and m["model_name"] != "codex-*"
     }
+    auto_routes = {
+        m["model_name"]: m["litellm_params"].get("model")
+        for m in auto["model_list"]
+    }
+    if auto_routes.get("codex-*") != "chatgpt/codex-*":
+        errors.append("Auto Router config must preserve codex-* approval/review passthrough")
+
     expected_upstreams = {
         "luna-upstream": "chatgpt/gpt-6-luna",
         "terra-upstream": "chatgpt/gpt-6.1-terra",

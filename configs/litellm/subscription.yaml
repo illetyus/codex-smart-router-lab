@@ -5,5 +5,12 @@ model_list:
     model_info:
       mode: responses
 
+  # Codex also opens review/approval turns such as codex-auto-review.
+  - model_name: codex-*
+    litellm_params:
+      model: chatgpt/codex-*
+    model_info:
+      mode: responses
+
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
