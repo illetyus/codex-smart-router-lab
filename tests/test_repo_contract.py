@@ -332,3 +332,10 @@ def test_k3_model_probe_mode_exists_before_autorouter():
     assert 'Restart with router-free model probe config' in heavy
     assert 'CODEX_ROUTER_CONFIG=model-probe.yaml' in heavy
     assert (ROOT / 'docs/K3-MODEL-PROBE.md').exists()
+
+
+def test_heavy_smoke_serializes_expensive_source_builds():
+    text = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert 'concurrency:' in text
+    assert 'group: codex-smart-router-heavy-smoke' in text
+    assert 'cancel-in-progress: true' in text
