@@ -7,7 +7,7 @@ This managed policy is installed only after K2/K3 have passed. It governs orches
 - Never request the private `*-upstream` aliases directly.
 
 ## Subagent dispatch
-When using Superpowers or native `spawn_agent`, always provide both `model` and `reasoning_effort`. An omitted model inherits the parent and violates this policy.
+For implementation plans with separable tasks, use Superpowers `subagent-driven-development`; its implementer/reviewer/fix loop is the authoritative failure-escalation path. When using Superpowers or native `spawn_agent`, always provide both `model` and `reasoning_effort`. An omitted model inherits the parent and violates this policy.
 
 - Mechanical, bounded, repetitive work: `model=gpt-6-luna`, `reasoning_effort=medium`.
 - Integration and ordinary debugging: `model=gpt-6.1-terra`, `reasoning_effort=medium`.
