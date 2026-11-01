@@ -58,7 +58,7 @@ def validate() -> list[str]:
     upstream_models = {
         m["model_name"]: m["litellm_params"].get("model")
         for m in auto["model_list"]
-        if m is not router and m["model_name"] != "codex-*"
+        if m["model_name"].endswith("-upstream")
     }
     auto_routes = {
         m["model_name"]: m["litellm_params"].get("model")
@@ -75,6 +75,21 @@ def validate() -> list[str]:
     }
     if upstream_models != expected_upstreams:
         errors.append("Auto Router upstream model map differs from the reviewed current Codex model set")
+
+    expected_direct_workers = {
+        "gpt-6-luna": "chatgpt/gpt-6-luna",
+        "gpt-6.1-terra": "chatgpt/gpt-6.1-terra",
+        "gpt-6-sol": "chatgpt/gpt-6-sol",
+        "gpt-6-astra": "chatgpt/gpt-6-astra",
+    }
+    direct_workers = {
+        name: auto_routes.get(name)
+        for name in expected_direct_workers
+    }
+    if direct_workers != expected_direct_workers:
+        errors.append("Direct Superpowers worker routes do not match the reviewed Codex model slugs")
+    if any(m["model_name"] == "gpt-*" for m in auto["model_list"]):
+        errors.append("Do not use a broad gpt-* wildcard for worker routing")
 
     codex = tomllib.loads((ROOT / "configs/codex/provider.subscription.toml").read_text())
     provider = codex["model_providers"]["litellm_subscription"]

@@ -1,7 +1,12 @@
 # Catalog-free Codex routing mode.
-# The external model name deliberately shadows a model Codex already knows
-# (gpt-6.1-sol), avoiding an unknown custom alias and the associated tool-schema
-# resend overhead. The actual ChatGPT models live behind internal aliases.
+# The controller-facing external model name deliberately shadows a model Codex
+# already knows (gpt-6.1-sol), avoiding an unknown custom alias and the
+# associated tool-schema resend overhead.
+#
+# Superpowers/native subagents need explicit model names. Those direct worker
+# routes are exposed under model slugs Codex already knows. The Auto Router's
+# own tier targets remain internal aliases so gpt-6.1-sol can stay reserved for
+# the controller-facing router.
 model_list:
   - model_name: gpt-6.1-sol
     litellm_params:
@@ -23,6 +28,34 @@ model_list:
                 reasoning_effort: xhigh
       complexity_router_default_model: terra-upstream
 
+  # Public direct worker routes for explicit Codex spawn_agent(model=...).
+  - model_name: gpt-6-luna
+    litellm_params:
+      model: chatgpt/gpt-6-luna
+    model_info:
+      mode: responses
+
+  - model_name: gpt-6.1-terra
+    litellm_params:
+      model: chatgpt/gpt-6.1-terra
+    model_info:
+      mode: responses
+
+  # gpt-6.1-sol is occupied by the Auto Router; use the known gpt-6-sol slug
+  # when Superpowers deliberately wants a direct Sol worker.
+  - model_name: gpt-6-sol
+    litellm_params:
+      model: chatgpt/gpt-6-sol
+    model_info:
+      mode: responses
+
+  - model_name: gpt-6-astra
+    litellm_params:
+      model: chatgpt/gpt-6-astra
+    model_info:
+      mode: responses
+
+  # Private tier targets used only by the Auto Router.
   - model_name: luna-upstream
     litellm_params:
       model: chatgpt/gpt-6-luna
