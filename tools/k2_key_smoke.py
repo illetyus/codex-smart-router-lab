@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 EXPECTED_MODELS = {"gpt-6.1-sol", "codex-*"}
@@ -34,10 +33,10 @@ def generate_key(base_url: str, master_key: str) -> str:
     return key
 
 
-def verify_key_models(base_url: str, master_key: str, virtual_key: str) -> None:
+def verify_key_models(base_url: str, virtual_key: str) -> None:
     data = request_json(
-        f"{base_url.rstrip('/')}/key/info?key={quote(virtual_key, safe='')}",
-        bearer=master_key,
+        f"{base_url.rstrip('/')}/key/info",
+        bearer=virtual_key,
     )
     info = data.get("info")
     if not isinstance(info, dict):
@@ -57,7 +56,7 @@ def main() -> int:
     args = parser.parse_args()
 
     virtual_key = generate_key(args.base_url, args.master_key)
-    verify_key_models(args.base_url, args.master_key, virtual_key)
+    verify_key_models(args.base_url, virtual_key)
     print(json.dumps({"key_alias": "codex-k2-ci", "models": sorted(EXPECTED_MODELS)}))
     return 0
 
