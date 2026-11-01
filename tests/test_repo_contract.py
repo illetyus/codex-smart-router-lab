@@ -297,8 +297,9 @@ def test_heavy_smoke_proves_restricted_k2_virtual_key_contract():
     text = tool.read_text()
     assert '/key/generate' in text
     assert '/key/info' in text
-    assert '?key=' not in text
-    assert 'bearer=virtual_key' in text
+    assert '?key=' in text
+    assert 'bearer=master_key' in text
+    assert 'bearer=virtual_key' not in text
     assert 'gpt-6.1-sol' in text
     assert 'codex-*' in text
     assert '/responses' not in text
@@ -345,7 +346,7 @@ def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
     path = ROOT / 'scripts/windows/provision-codex-key.ps1'
     assert path.exists(), 'missing Windows Codex key provisioner'
     text = path.read_text()
-    assert "[ValidateSet('k2','k3')]" in text
+    assert "[ValidateSet('k2','k3','runtime')]" in text
     assert "'gpt-6.1-sol', 'codex-*'" in text
     for model in ('gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra'):
         assert model in text
@@ -368,7 +369,7 @@ def test_windows_codex_provider_configurator_and_restore_contract():
     assert "config.toml.pre-litellm-backup" in c
     assert 'model_provider = "litellm_subscription"' in c
     assert '[model_providers.litellm_subscription]' in c
-    assert 'base_url = "http://localhost:4000/v1"' in c
+    assert 'base_url = "http://127.0.0.1:4000/v1"' in c
     assert 'wire_api = "responses"' in c
     assert 'requires_openai_auth = true' in c
     assert 'x-litellm-api-key' in c
@@ -379,3 +380,74 @@ def test_windows_codex_provider_configurator_and_restore_contract():
     assert "config.toml.pre-litellm-backup" in r
     assert ".env.pre-litellm-backup" in r
     assert 'auth.json' not in r
+
+
+def test_codex_image_route_is_explicitly_preserved_everywhere():
+    for name in ('subscription.yaml', 'model-probe.yaml', 'autorouter.yaml'):
+        cfg = yaml.safe_load((ROOT / 'configs/litellm' / name).read_text())
+        routes = {m['model_name']: m['litellm_params']['model'] for m in cfg['model_list']}
+        assert routes['gpt-image-2'] == 'chatgpt/gpt-image-2'
+
+
+def test_runtime_key_profile_matches_public_router_surface():
+    text = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    assert "'runtime'" in text
+    for model in ('gpt-6.1-sol', 'gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra', 'gpt-image-2', 'codex-*'):
+        assert model in text
+
+
+def test_preflight_checks_compose_powershell_and_loopback_port():
+    text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    assert 'docker compose version' in text
+    assert 'PowerShell7' in text
+    assert 'Port4000Available' in text
+
+
+def test_heavy_smoke_checks_readiness_not_only_liveliness():
+    text = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert '/health/readiness' in text
+
+
+def test_router_policy_is_wired_into_a_codex_agents_template():
+    policy = ROOT / 'configs/codex/AGENTS.smart-router.md'
+    assert policy.exists()
+    text = policy.read_text()
+    assert 'gpt-6-luna' in text
+    assert 'gpt-6.1-terra' in text
+    assert 'gpt-6-sol' in text
+    assert 'gpt-6-astra' in text
+    assert 'rounds 4' in text.lower()
+    assert 'reasoning_effort' in text
+    assert 'PreToolUse' in text
+    assert '#49736' in text
+
+
+def test_policy_installer_and_restore_are_present_and_managed_block_safe():
+    install = ROOT / 'scripts/windows/configure-smart-router-policy.ps1'
+    restore = ROOT / 'scripts/windows/restore-smart-router-policy.ps1'
+    assert install.exists()
+    assert restore.exists()
+    itext = install.read_text()
+    rtext = restore.read_text()
+    assert 'CODEX-SMART-ROUTER:BEGIN' in itext
+    assert 'CODEX-SMART-ROUTER:END' in itext
+    assert 'CODEX-SMART-ROUTER:BEGIN' in rtext
+    assert 'CODEX-SMART-ROUTER:END' in rtext
+
+
+def test_restore_detects_post_install_config_drift_before_overwrite():
+    configure = (ROOT / 'scripts/windows/configure-codex-provider.ps1').read_text()
+    restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
+    assert 'config.toml.pre-litellm-applied.sha256' in configure
+    assert 'config.toml.pre-litellm-applied.sha256' in restore
+    assert 'pre-litellm-restore-conflict' in restore
+
+
+def test_autorouter_declares_effort_for_each_controller_tier():
+    cfg = yaml.safe_load((ROOT / 'configs/litellm/autorouter.yaml').read_text())
+    router = next(x for x in cfg['model_list'] if x['model_name'] == 'gpt-6.1-sol')
+    tm = router['litellm_params']['complexity_router_config']['tier_model_configs']
+    assert tm['SIMPLE'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
+    assert tm['MEDIUM'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
+    assert tm['COMPLEX'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high','xhigh'}
+    assert tm['REASONING'][0]['litellm_params']['reasoning_effort'] == 'xhigh'
