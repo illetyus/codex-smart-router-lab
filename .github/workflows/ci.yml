@@ -87,7 +87,9 @@ jobs:
 
           MASTER = "Bearer sk-test-master"
           VIRTUAL = "sk-test-virtual"
-          MODELS = ["gpt-6.1-sol", "codex-*"]
+          K2_MODELS = ["gpt-6.1-sol", "codex-*"]
+          K3_MODELS = ["gpt-6.1-sol", "gpt-6-luna", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-astra", "codex-*"]
+          current_models = K2_MODELS
 
           class Handler(BaseHTTPRequestHandler):
               def log_message(self, *_):
@@ -102,14 +104,18 @@ jobs:
                   self.wfile.write(body)
 
               def do_POST(self):
+                  global current_models
                   if self.path != "/key/generate":
                       return self.send_json(404, {"error": "not found"})
                   if self.headers.get("Authorization") != MASTER:
                       return self.send_json(401, {"error": "bad master key"})
                   length = int(self.headers.get("Content-Length", "0"))
                   payload = json.loads(self.rfile.read(length) or b"{}")
-                  if sorted(payload.get("models", [])) != sorted(MODELS):
+                  requested = payload.get("models", [])
+                  allowed = {tuple(sorted(K2_MODELS)), tuple(sorted(K3_MODELS))}
+                  if tuple(sorted(requested)) not in allowed:
                       return self.send_json(400, {"error": "unexpected models"})
+                  current_models = requested
                   self.send_json(200, {"key": VIRTUAL})
 
               def do_GET(self):
@@ -117,7 +123,7 @@ jobs:
                       return self.send_json(404, {"error": "not found"})
                   if self.headers.get("Authorization") != f"Bearer {VIRTUAL}":
                       return self.send_json(401, {"error": "bad virtual key"})
-                  self.send_json(200, {"info": {"models": MODELS}})
+                  self.send_json(200, {"info": {"models": current_models}})
 
           HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
           '@ | Set-Content -Path $serverPath -Encoding utf8
@@ -138,6 +144,18 @@ jobs:
             $backupLines = @(Get-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup'))
             if ($backupLines -notcontains 'EXISTING_VAR=keep') { throw 'Codex dotenv backup was not created correctly' }
             if (($backupLines -join [char]10) -match 'LITELLM_API_KEY') { throw 'Backup unexpectedly contains a LiteLLM virtual key' }
+
+            $k3 = & ./scripts/windows/provision-codex-key.ps1 -Profile k3 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            if ($k3.Profile -ne 'k3') { throw "Expected k3 profile, got $($k3.Profile)" }
+            if (@($k3.Models).Count -ne 6) { throw 'Expected exactly six K3 models' }
+
+            $k3EnvLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
+            if ($k3EnvLines -notcontains 'EXISTING_VAR=keep') { throw 'K3 provisioning lost existing dotenv content' }
+            if (@($k3EnvLines | Where-Object { $_ -match '^LITELLM_API_KEY=' }).Count -ne 1) { throw 'K3 provisioning duplicated the virtual-key line' }
+            if (($k3EnvLines -join [char]10) -match 'sk-test-master') { throw 'K3 provisioning leaked the master key' }
+
+            $backupAfterK3 = @(Get-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup'))
+            if (($backupAfterK3 -join [char]10) -ne ($backupLines -join [char]10)) { throw 'K3 provisioning modified the original backup' }
           }
           finally {
             if ($null -ne $server -and -not $server.HasExited) {
