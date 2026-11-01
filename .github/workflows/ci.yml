@@ -116,8 +116,10 @@ jobs:
                   allowed = {tuple(sorted(K2_MODELS)), tuple(sorted(K3_MODELS))}
                   if tuple(sorted(requested)) not in allowed:
                       return self.send_json(400, {"error": "unexpected models"})
+                  if payload.get("duration") != "30d":
+                      return self.send_json(400, {"error": "unexpected duration"})
                   current_models = requested
-                  self.send_json(200, {"key": VIRTUAL})
+                  self.send_json(200, {"key": VIRTUAL, "models": requested, "expires": "2026-12-01T00:00:00Z"})
 
               def do_GET(self):
                   parsed = urlsplit(self.path)
@@ -160,6 +162,10 @@ jobs:
 
             $backupAfterK3 = @(Get-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup'))
             if (($backupAfterK3 -join [char]10) -ne ($backupLines -join [char]10)) { throw 'K3 provisioning modified the original backup' }
+
+            $runtime = & ./scripts/windows/provision-codex-key.ps1 -Profile runtime -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            if ($runtime.Profile -ne 'runtime') { throw "Expected runtime profile, got $($runtime.Profile)" }
+            if (@($runtime.Models).Count -ne 7) { throw 'Expected exactly seven runtime models' }
           }
           finally {
             if ($null -ne $server -and -not $server.HasExited) {
