@@ -289,3 +289,16 @@ def test_windows_verify_accepts_key_from_codex_dotenv():
     assert "LITELLM_API_KEY" in text
     assert "\\s*LITELLM_API_KEY\\s*=\\s*.+" in text
     assert "process environment only" not in text.lower()
+
+
+def test_heavy_smoke_proves_restricted_k2_virtual_key_contract():
+    tool = ROOT / 'tools/k2_key_smoke.py'
+    assert tool.exists(), 'missing K2 virtual-key smoke tool'
+    text = tool.read_text()
+    assert '/key/generate' in text
+    assert '/key/info' in text
+    assert 'gpt-6.1-sol' in text
+    assert 'codex-*' in text
+    assert '/responses' not in text
+    workflow = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert 'python tools/k2_key_smoke.py' in workflow
