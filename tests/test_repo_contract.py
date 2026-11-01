@@ -40,6 +40,7 @@ def test_subscription_baseline_is_one_explicit_chatgpt_model_with_no_paid_fallba
     routes = {m['model_name']: m['litellm_params']['model'] for m in models}
     assert routes == {
         'gpt-6.1-sol': 'chatgpt/gpt-6.1-sol',
+        'gpt-image-2': 'chatgpt/gpt-image-2',
         'codex-*': 'chatgpt/codex-*',
     }
     serialized = json.dumps(cfg)
@@ -102,7 +103,7 @@ def test_autorouter_uses_upstream_tier_model_configs_shape():
     rcfg = router['litellm_params']['complexity_router_config']
     assert 'tier_model_params' not in rcfg
     assert rcfg['tier_model_configs']['REASONING'] == [
-        {'model_name': 'astra-upstream', 'litellm_params': {'reasoning_effort': 'xhigh'}}
+        {'model_name': 'astra-upstream', 'litellm_params': {'reasoning_effort': 'high'}}
     ]
 
 
@@ -265,7 +266,7 @@ def test_escalation_policy_matches_superpowers_fix_loop():
         'mechanical': {'model': 'gpt-6-luna', 'reasoning_effort': 'medium'},
         'integration': {'model': 'gpt-6.1-terra', 'reasoning_effort': 'medium'},
         'difficult': {'model': 'gpt-6-sol', 'reasoning_effort': 'high'},
-        'critical': {'model': 'gpt-6-astra', 'reasoning_effort': 'xhigh'},
+        'critical': {'model': 'gpt-6-astra', 'reasoning_effort': 'high'},
     }
     assert cfg['fix_loop']['rounds_1_3']['action'] == 'retry_same_worker'
     assert cfg['fix_loop']['rounds_4_5']['action'] == 'fresh_worker_promote_one_tier'
@@ -318,6 +319,7 @@ def test_k3_model_probe_mode_exists_before_autorouter():
         'gpt-6.1-terra': 'chatgpt/gpt-6.1-terra',
         'gpt-6-sol': 'chatgpt/gpt-6-sol',
         'gpt-6-astra': 'chatgpt/gpt-6-astra',
+        'gpt-image-2': 'chatgpt/gpt-image-2',
         'codex-*': 'chatgpt/codex-*',
     }
     serialized = json.dumps(cfg)
@@ -450,7 +452,7 @@ def test_autorouter_declares_effort_for_each_controller_tier():
     assert tm['SIMPLE'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
     assert tm['MEDIUM'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
     assert tm['COMPLEX'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high','xhigh'}
-    assert tm['REASONING'][0]['litellm_params']['reasoning_effort'] == 'xhigh'
+    assert tm['REASONING'][0]['litellm_params']['reasoning_effort'] == 'high'
 
 
 def test_restore_tracks_codex_dotenv_applied_hash_and_conflicts():
