@@ -127,10 +127,12 @@ def test_heavy_smoke_is_manual_and_never_uses_openai_api_key():
 def test_phase1_installer_does_not_mutate_codex_config_or_auth():
     text = (ROOT / 'scripts/windows/install.ps1').read_text()
     assert 'RandomNumberGenerator' in text
-    assert "Join-Path $env:USERPROFILE '.codex'" not in text
+    assert "[string]$CodexHome" in text
+    assert "'preflight.ps1') -CodexHome $CodexHome" in text
     assert 'auth.json' not in text
     assert text.count('Set-Content -Path') == 1
     assert 'Set-Content -Path $EnvFile' in text
+    assert "& (Join-Path $PSScriptRoot 'configure-codex-provider.ps1')" not in text
     assert 'docker compose' in text
 
 
