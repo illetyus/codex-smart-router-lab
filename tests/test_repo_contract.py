@@ -451,3 +451,11 @@ def test_autorouter_declares_effort_for_each_controller_tier():
     assert tm['MEDIUM'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
     assert tm['COMPLEX'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high','xhigh'}
     assert tm['REASONING'][0]['litellm_params']['reasoning_effort'] == 'xhigh'
+
+
+def test_restore_tracks_codex_dotenv_applied_hash_and_conflicts():
+    provision = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
+    assert '.env.pre-litellm-applied.sha256' in provision
+    assert '.env.pre-litellm-applied.sha256' in restore
+    assert '.env.pre-litellm-restore-conflict' in restore
