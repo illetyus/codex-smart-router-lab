@@ -470,8 +470,10 @@ def test_restore_tracks_codex_dotenv_applied_hash_and_conflicts():
 def test_secret_files_are_acl_hardened_and_virtual_keys_expire():
     install = (ROOT / 'scripts/windows/install.ps1').read_text()
     provision = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
     assert 'Protect-SecretFile' in install
     assert 'Protect-SecretFile' in provision
+    assert 'Protect-SecretFile' in restore
     assert 'SetAccessRuleProtection' in install
     assert 'SetAccessRuleProtection' in provision
     assert "[string]$Duration = '30d'" in provision
