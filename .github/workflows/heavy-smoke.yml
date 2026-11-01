@@ -35,6 +35,8 @@ jobs:
         shell: bash
         run: |
           curl --fail --silent --show-error http://127.0.0.1:4000/health/liveliness
+      - name: Prove restricted K2 virtual key
+        run: python tools/k2_key_smoke.py --master-key sk-ci-only-not-a-real-secret
       - name: Restart with Auto Router config
         shell: bash
         run: |
