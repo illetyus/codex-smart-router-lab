@@ -379,3 +379,20 @@ def test_windows_codex_provider_configurator_and_restore_contract():
     assert "config.toml.pre-litellm-backup" in r
     assert ".env.pre-litellm-backup" in r
     assert 'auth.json' not in r
+
+
+def test_windows_preflight_checks_compose_daemon_and_codex_config():
+    text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    assert "[string]$CodexHome" in text
+    assert "docker compose version" in text
+    assert "$LASTEXITCODE -eq 0" in text
+    assert "CodexConfig" in text
+    assert "config.toml" in text
+
+def test_windows_installer_waits_for_health_and_points_to_automated_next_steps():
+    text = (ROOT / 'scripts/windows/install.ps1').read_text()
+    assert "--wait" in text
+    assert "--wait-timeout" in text
+    assert "provision-codex-key.ps1" in text
+    assert "configure-codex-provider.ps1" in text
+    assert "verify.ps1" in text
