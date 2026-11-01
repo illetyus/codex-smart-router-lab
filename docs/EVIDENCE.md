@@ -41,5 +41,14 @@ The repository also pins evidence snapshots for the orchestration layer:
 ## Supply-chain pins
 
 - PostgreSQL: `postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74`.
-- GitHub Actions checkout: `11d5960a326750d5838078e36cf38b85af677262`.
-- GitHub Actions setup-python: `a26af69be951a213d495a4c3e4e4022e16d87065`.
+- GitHub Actions checkout: `3d3c42e5aac5ba805825da76410c181273ba90b1`.
+- GitHub Actions setup-python: `6d4fd22b20465ccc0f7354476588e8df7c9ca0e0`.
+
+
+## Additional pre-connection evidence
+
+- LiteLLM's virtual-key API documents `GET /key/info?key=<virtual-key>` authenticated by the master key. The disposable Heavy-smoke test exercises this exact pinned-server contract. The production Windows provisioner instead validates the `models` returned by `/key/generate`, avoiding a real user virtual key in a URL.
+- The pinned LiteLLM source test suite contains `chatgpt/gpt-image-2`, providing source-level evidence for the explicit Codex image route.
+- OpenAI Codex issue #49736 remains evidence that `PreToolUse` must not be a load-bearing `spawn_agent` guard until reverified on the installed version.
+- OpenAI Codex issue #34289 remains evidence that generic `PostToolUse` must not be used as a deterministic failure/exit-code signal.
+- LiteLLM documentation states that `STORE_MODEL_IN_DB=True` allows Admin UI/database configuration to override YAML. This lab therefore keeps it `False` so Git-tracked config remains authoritative.
