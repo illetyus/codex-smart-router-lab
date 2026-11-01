@@ -26,27 +26,24 @@ Check health:
 Invoke-RestMethod http://127.0.0.1:4000/health/liveliness
 ```
 
-## 2. Create a restricted LiteLLM virtual key
+## 2. Provision a restricted LiteLLM virtual key
 
-Open the local LiteLLM dashboard, then **Virtual Keys → + Create New Key**.
+Preferred path:
 
-For the K2 key:
-
-- Name/alias: `codex-k2`
-- Allowed models: `gpt-6.1-sol` and `codex-*`
-- Do not grant an API-backed fallback model.
-
-Why `codex-*` is required: Codex can issue approval/review requests such as `codex-auto-review` in addition to the selected GPT model. LiteLLM's official Codex subscription guide explicitly requires both GPT and Codex routes.
-
-Save the generated virtual key in:
-
-`%USERPROFILE%\.codex\.env`
-
-```dotenv
-LITELLM_API_KEY=sk-<your-litellm-virtual-key>
+```powershell
+pwsh -File .\scripts\windows\provision-codex-key.ps1 -Profile k2
 ```
 
-Do not put the LiteLLM master key in the Codex `.env` file.
+The helper reads the local gateway master key from this repository's ignored `.env`, asks the localhost LiteLLM gateway for a `codex-k2` virtual key, verifies its allowlist through header-only `/key/info`, and stores only the resulting virtual key in `%USERPROFILE%\.codex\.env`. The key value is never printed. If a Codex `.env` already exists, its other lines are preserved and a one-time `.env.pre-litellm-backup` is created.
+
+The K2 allowlist is exactly:
+
+- `gpt-6.1-sol`
+- `codex-*`
+
+Why `codex-*` is required: Codex can issue approval/review requests such as `codex-auto-review` in addition to the selected GPT model. LiteLLM's official Codex subscription guide requires both GPT and Codex routes.
+
+Do not put the LiteLLM master key in the Codex `.env` file. The local dashboard can still be used as a manual fallback, but the scripted path is the repeatable installation path.
 
 ## 3. Back up Codex configuration
 
