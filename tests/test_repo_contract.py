@@ -349,7 +349,9 @@ def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
     assert path.exists(), 'missing Windows Codex key provisioner'
     text = path.read_text()
     assert "[ValidateSet('k2','k3','runtime')]" in text
-    assert "'gpt-6.1-sol', 'codex-*'" in text
+    assert "'gpt-6.1-sol'" in text
+    assert "'codex-*'" in text
+    assert "'gpt-image-2'" in text
     for model in ('gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra'):
         assert model in text
     assert '/key/generate' in text
