@@ -8,16 +8,33 @@ $configPath = Join-Path $CodexHome 'config.toml'
 $configBackup = Join-Path $CodexHome 'config.toml.pre-litellm-backup'
 $envPath = Join-Path $CodexHome '.env'
 $envBackup = Join-Path $CodexHome '.env.pre-litellm-backup'
+$configAppliedHashPath = Join-Path $CodexHome 'config.toml.pre-litellm-applied.sha256'
+$envAppliedHashPath = Join-Path $CodexHome '.env.pre-litellm-applied.sha256'
+
+function Save-ConflictCopyIfDrifted {
+    param([string]$Path, [string]$AppliedHashPath, [string]$Label)
+    if (-not (Test-Path -LiteralPath $Path) -or -not (Test-Path -LiteralPath $AppliedHashPath)) { return $null }
+    $expected = (Get-Content -LiteralPath $AppliedHashPath -Raw).Trim()
+    $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash
+    if ($actual -eq $expected) { return $null }
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $copy = Join-Path $CodexHome "$Label.pre-litellm-restore-conflict-$stamp"
+    Copy-Item -LiteralPath $Path -Destination $copy -Force
+    return $copy
+}
 
 if (-not (Test-Path -LiteralPath $configBackup)) {
     throw "Codex config backup was not found: $configBackup"
 }
 
+$configConflict = Save-ConflictCopyIfDrifted -Path $configPath -AppliedHashPath $configAppliedHashPath -Label 'config.toml'
 if ($PSCmdlet.ShouldProcess($configPath, 'restore pre-LiteLLM Codex configuration')) {
     Copy-Item -LiteralPath $configBackup -Destination $configPath -Force
+    Remove-Item -LiteralPath $configAppliedHashPath -Force -ErrorAction SilentlyContinue
 }
 
 $envAction = 'unchanged'
+$envConflict = Save-ConflictCopyIfDrifted -Path $envPath -AppliedHashPath $envAppliedHashPath -Label '.env'
 if (Test-Path -LiteralPath $envBackup) {
     if ($PSCmdlet.ShouldProcess($envPath, 'restore pre-LiteLLM Codex dotenv')) {
         Copy-Item -LiteralPath $envBackup -Destination $envPath -Force
@@ -34,10 +51,13 @@ elseif (Test-Path -LiteralPath $envPath) {
     }
     $envAction = 'removed-litellm-key'
 }
+Remove-Item -LiteralPath $envAppliedHashPath -Force -ErrorAction SilentlyContinue
 
 [PSCustomObject]@{
     Config = $configPath
     ConfigBackup = $configBackup
     Env = $envPath
     EnvAction = $envAction
+    ConfigConflictCopy = $configConflict
+    EnvConflictCopy = $envConflict
 } | ConvertTo-Json -Compress
