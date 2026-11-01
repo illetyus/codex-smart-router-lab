@@ -485,3 +485,16 @@ def test_installer_rejects_placeholder_or_weak_existing_env():
     assert 'CHANGE_ME' in text
     assert 'OPENAI_API_KEY' in text
     assert 'existing .env failed validation' in text
+
+
+def test_virtual_key_revocation_helper_is_present_and_secret_safe():
+    path = ROOT / 'scripts/windows/revoke-codex-key.ps1'
+    assert path.exists()
+    text = path.read_text()
+    assert '/key/delete' in text
+    assert 'keys = @($virtualKey)' in text
+    assert 'LITELLM_MASTER_KEY' in text
+    assert 'LITELLM_API_KEY' in text
+    assert 'Write-Host $virtualKey' not in text
+    assert 'Write-Output $virtualKey' not in text
+    assert 'Protect-SecretFile' in text
