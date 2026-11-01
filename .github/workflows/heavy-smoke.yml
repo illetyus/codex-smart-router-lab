@@ -47,6 +47,11 @@ jobs:
           done
           docker compose logs litellm
           exit 1
+      - name: Dry-run committed Auto Router through the real proxy
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check pyyaml
+          python tools/router_dry_run.py --master-key sk-ci-only-not-a-real-secret
       - name: Show final status
         if: always()
         run: docker compose ps && docker compose logs --tail=100 litellm

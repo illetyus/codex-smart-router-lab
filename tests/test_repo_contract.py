@@ -200,3 +200,10 @@ def test_k2_runbook_restricts_key_to_baseline_and_review_routes():
     assert 'Do not set `env_key`' in text
     assert 'OPENAI_API_KEY' in text
     assert 'Reply with exactly Hello. Do not use tools.' in text
+
+
+def test_heavy_smoke_executes_real_autorouter_dry_run():
+    text = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert '/auto_router/test_routing' in (ROOT / 'tools/router_dry_run.py').read_text()
+    assert 'python tools/router_dry_run.py' in text
+    assert 'sk-ci-only-not-a-real-secret' in text
