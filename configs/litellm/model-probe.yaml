@@ -1,0 +1,42 @@
+# K3 router-free model access probe.
+# This mode exists only to prove the caller's ChatGPT subscription can reach
+# every intended model before the complexity Auto Router is enabled.
+model_list:
+  - model_name: gpt-6.1-sol
+    litellm_params:
+      model: chatgpt/gpt-6.1-sol
+    model_info:
+      mode: responses
+
+  - model_name: gpt-6-luna
+    litellm_params:
+      model: chatgpt/gpt-6-luna
+    model_info:
+      mode: responses
+
+  - model_name: gpt-6.1-terra
+    litellm_params:
+      model: chatgpt/gpt-6.1-terra
+    model_info:
+      mode: responses
+
+  - model_name: gpt-6-sol
+    litellm_params:
+      model: chatgpt/gpt-6-sol
+    model_info:
+      mode: responses
+
+  - model_name: gpt-6-astra
+    litellm_params:
+      model: chatgpt/gpt-6-astra
+    model_info:
+      mode: responses
+
+  - model_name: codex-*
+    litellm_params:
+      model: chatgpt/codex-*
+    model_info:
+      mode: responses
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
