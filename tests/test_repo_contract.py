@@ -354,4 +354,5 @@ def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
     assert 'Write-Host $virtualKey' not in text
     assert 'Write-Output $virtualKey' not in text
     assert 'LITELLM_API_KEY=' in text
-    assert 'LITELLM_MASTER_KEY=' in text
+    assert "-Name 'LITELLM_MASTER_KEY'" in text
+    assert '$replacement = "LITELLM_API_KEY=$virtualKey"' in text
