@@ -25,7 +25,7 @@ def _effort(value):
 def inspect_rollout(path: Path):
     meta = {}
     turn = {}
-    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    for raw in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         try:
             item = json.loads(raw)
         except json.JSONDecodeError:
