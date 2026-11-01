@@ -286,5 +286,6 @@ def test_windows_verify_accepts_key_from_codex_dotenv():
     assert "[string]$CodexHome" in text
     assert "$CodexEnvFile = Join-Path $CodexHome '.env'" in text
     assert "Get-Content -Path $CodexEnvFile" in text
-    assert "LITELLM_API_KEY=" in text
+    assert "LITELLM_API_KEY" in text
+    assert "\\s*LITELLM_API_KEY\\s*=\\s*.+" in text
     assert "process environment only" not in text.lower()
