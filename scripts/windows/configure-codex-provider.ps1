@@ -71,7 +71,7 @@ $providerBlock = @(
     '',
     '[model_providers.litellm_subscription]',
     'name = "LiteLLM subscription"',
-    'base_url = "http://localhost:4000/v1"',
+    'base_url = "http://127.0.0.1:4000/v1"',
     'wire_api = "responses"',
     'supports_websockets = false',
     'requires_openai_auth = true',
@@ -81,6 +81,8 @@ $providerBlock = @(
 $output = @($patched) + $providerBlock
 if ($PSCmdlet.ShouldProcess($configPath, 'configure LiteLLM subscription provider')) {
     $output | Set-Content -LiteralPath $configPath -Encoding utf8NoBOM
+    $appliedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $configPath).Hash
+    Set-Content -LiteralPath (Join-Path $CodexHome 'config.toml.pre-litellm-applied.sha256') -Value $appliedHash -Encoding ascii
 }
 
 [PSCustomObject]@{
