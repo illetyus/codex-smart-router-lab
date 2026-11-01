@@ -126,3 +126,28 @@ def test_rollout_collector_fails_when_no_model_evidence_exists(tmp_path):
     )
     assert proc.returncode != 0
     assert "No rollout model/effort evidence found" in (proc.stdout + proc.stderr)
+
+
+def test_rollout_collector_preserves_multiple_turn_contexts(tmp_path):
+    root = tmp_path / "sessions"
+    root.mkdir()
+    path = root / "multi.jsonl"
+    lines = [
+        {"timestamp":"2026-11-01T00:00:00Z","ordinal":0,"type":"session_meta","payload":{"meta":{"id":"multi","agent_role":"worker"},"git":None}},
+        {"timestamp":"2026-11-01T00:00:01Z","ordinal":1,"type":"turn_context","payload":{"turn_id":"t1","model":"gpt-6-luna","effort":"medium"}},
+        {"timestamp":"2026-11-01T00:00:02Z","ordinal":2,"type":"turn_context","payload":{"turn_id":"t2","model":"gpt-6-sol","effort":"high"}},
+    ]
+    path.write_text("\n".join(json.dumps(x) for x in lines) + "\n", encoding="utf-8")
+    out = tmp_path / "evidence.json"
+    subprocess.run(
+        [sys.executable, str(ROOT / "tools/collect_rollout_evidence.py"), "--sessions-root", str(root), "--out", str(out)],
+        check=True,
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    row = data["sessions"][0]
+    assert row["model"] == "gpt-6-sol"
+    assert row["effort"] == "high"
+    assert row["turns"] == [
+        {"ordinal": 1, "turn_id": "t1", "root_turn_id": None, "model": "gpt-6-luna", "effort": "medium"},
+        {"ordinal": 2, "turn_id": "t2", "root_turn_id": None, "model": "gpt-6-sol", "effort": "high"},
+    ]
