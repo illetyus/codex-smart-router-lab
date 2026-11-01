@@ -1,0 +1,22 @@
+[
+  {
+    "class": "SIMPLE",
+    "expected_tier": "SIMPLE",
+    "prompt": "In the current repository, locate the README title and report it exactly. Do not modify files."
+  },
+  {
+    "class": "MEDIUM",
+    "expected_tier": "MEDIUM",
+    "prompt": "Inspect a small utility module and propose a minimal implementation change that touches at most two files, including the exact test you would run."
+  },
+  {
+    "class": "COMPLEX",
+    "expected_tier": "COMPLEX",
+    "prompt": "Trace a cross-module bug where configuration is loaded correctly but a downstream worker ignores one field. Identify the likely data-flow boundary and propose a verified fix plan."
+  },
+  {
+    "class": "REASONING",
+    "expected_tier": "REASONING",
+    "prompt": "Compare two competing architectures for a failure-driven coding-agent router under strict rollback, auditability, and subscription-cost constraints. Derive trade-offs and choose one with explicit invariants."
+  }
+]
