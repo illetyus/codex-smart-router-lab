@@ -42,3 +42,11 @@ Last updated: 2026-11-01
 ## Next gate
 
 If the final heavy smoke is green, repository-side pre-install validation is complete. K2 then begins on the user's Windows machine in `subscription` mode, not Auto Router mode.
+
+## 2026-11-01 continuation verification
+
+- Rechecked public main branch, workflow YAML and pinned LiteLLM source.
+- The heavy Docker smoke workflow is **not verified as passing** by this checkpoint. It requires a GitHub Actions workflow run with recorded conclusion, not merely the presence of YAML.
+- K2 live ChatGPT OAuth and Windows Codex App verification remain blocked until the heavy smoke evidence and local user-side probe are available.
+- Do not enable Auto Router or install into Codex based on static tests alone.
+- Next: dispatch `.github/workflows/heavy-smoke.yml` using GitHub Actions, inspect build and health logs, fix any failure in a branch, merge only after CI passes.
