@@ -22,10 +22,22 @@ model_list:
           COMPLEX: sol-upstream
           REASONING: astra-upstream
         tier_model_configs:
+          SIMPLE:
+            - model_name: luna-upstream
+              litellm_params:
+                reasoning_effort: medium
+          MEDIUM:
+            - model_name: terra-upstream
+              litellm_params:
+                reasoning_effort: medium
+          COMPLEX:
+            - model_name: sol-upstream
+              litellm_params:
+                reasoning_effort: high
           REASONING:
             - model_name: astra-upstream
               litellm_params:
-                reasoning_effort: xhigh
+                reasoning_effort: high
       complexity_router_default_model: terra-upstream
 
   # Public direct worker routes for explicit Codex spawn_agent(model=...).
@@ -77,6 +89,13 @@ model_list:
   - model_name: astra-upstream
     litellm_params:
       model: chatgpt/gpt-6-astra
+    model_info:
+      mode: responses
+
+  # Preserve Codex's built-in image-generation tool without a broad gpt-* wildcard.
+  - model_name: gpt-image-2
+    litellm_params:
+      model: chatgpt/gpt-image-2
     model_info:
       mode: responses
 
