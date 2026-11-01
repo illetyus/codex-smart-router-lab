@@ -6,6 +6,12 @@ model_list:
       mode: responses
 
   # Codex also opens review/approval turns such as codex-auto-review.
+  - model_name: gpt-image-2
+    litellm_params:
+      model: chatgpt/gpt-image-2
+    model_info:
+      mode: responses
+
   - model_name: codex-*
     litellm_params:
       model: chatgpt/codex-*
