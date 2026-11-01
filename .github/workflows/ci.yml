@@ -163,6 +163,57 @@ jobs:
             }
           }
 
+      - name: Verify Codex provider configure and restore behavior
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP 'codex-configurator'
+          $codexHome = Join-Path $testRoot 'codex'
+          New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
+
+          $configPath = Join-Path $codexHome 'config.toml'
+          @'
+          model = "gpt-6.1-sol"
+          reasoning_effort = "medium"
+          model_provider = "openai"
+
+          [features]
+          multi_agent = true
+          '@ | Set-Content -Path $configPath -Encoding utf8NoBOM
+
+          @'
+          EXISTING_VAR=keep
+          LITELLM_API_KEY=sk-test-virtual
+          '@ | Set-Content -Path (Join-Path $codexHome '.env') -Encoding utf8NoBOM
+          'EXISTING_VAR=keep' | Set-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup') -Encoding utf8NoBOM
+
+          $originalHash = (Get-FileHash -Algorithm SHA256 -Path $configPath).Hash
+
+          & ./scripts/windows/configure-codex-provider.ps1 -CodexHome $codexHome | Out-Null
+          & ./scripts/windows/configure-codex-provider.ps1 -CodexHome $codexHome | Out-Null
+
+          $configured = Get-Content -Raw -Path $configPath
+          if ([regex]::Matches($configured, '(?m)^model_provider\s*=').Count -ne 1) { throw 'Top-level model_provider was duplicated' }
+          if ([regex]::Matches($configured, '(?m)^\[model_providers\.litellm_subscription\]\s*$').Count -ne 1) { throw 'LiteLLM provider table was duplicated' }
+          if ($configured -notmatch 'model_provider = "litellm_subscription"') { throw 'LiteLLM provider was not activated' }
+          if ($configured -notmatch 'model = "gpt-6\.1-sol"') { throw 'Existing model setting was lost' }
+          if ($configured -notmatch 'reasoning_effort = "medium"') { throw 'Existing reasoning effort was lost' }
+          if ($configured -notmatch '(?m)^\[features\]$') { throw 'Existing TOML table was lost' }
+          if ($configured -notmatch 'multi_agent = true') { throw 'Existing feature setting was lost' }
+
+          $backupPath = Join-Path $codexHome 'config.toml.pre-litellm-backup'
+          if (-not (Test-Path $backupPath)) { throw 'Config backup was not created' }
+          $backupHash = (Get-FileHash -Algorithm SHA256 -Path $backupPath).Hash
+          if ($backupHash -ne $originalHash) { throw 'Config backup does not match the original file' }
+
+          & ./scripts/windows/restore-codex-provider.ps1 -CodexHome $codexHome | Out-Null
+
+          $restoredHash = (Get-FileHash -Algorithm SHA256 -Path $configPath).Hash
+          if ($restoredHash -ne $originalHash) { throw 'Config restore did not reproduce the original file' }
+
+          $envLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
+          if ($envLines -notcontains 'EXISTING_VAR=keep') { throw 'Dotenv restore lost the original variable' }
+          if (($envLines -join [char]10) -match 'LITELLM_API_KEY') { throw 'Dotenv restore retained the LiteLLM key' }
+
   upstream-contract:
     runs-on: ubuntu-latest
     steps:
