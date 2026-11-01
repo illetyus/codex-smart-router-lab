@@ -35,24 +35,24 @@
 - [x] Write failing repository-contract tests.
 - [x] Run them and observe failure before production files exist.
 - [x] Add minimum configuration/docs required by the tests.
-- [ ] Run the complete suite and validate Compose rendering.
-- [ ] Commit.
+- [x] Run the complete suite and validate Compose rendering.
+- [x] Commit.
 
 ### Task 2: Windows preflight and lifecycle scripts
 **Files:** scripts/windows/*.ps1, .github/workflows/ci.yml
 **Interfaces:** Produces preflight/install/verify/uninstall commands used by K1/K2.
-- [ ] Parse every PowerShell file on windows-latest.
-- [ ] Ensure install does not edit real Codex config in phase 1.
-- [ ] Ensure uninstall preserves DB unless explicitly asked to remove it.
-- [ ] Commit.
+- [x] Parse every PowerShell file on windows-latest.
+- [x] Ensure install does not edit real Codex config in phase 1.
+- [x] Ensure uninstall preserves DB unless explicitly asked to remove it.
+- [x] Commit.
 
 ### Task 3: Upstream source contract
 **Files:** .github/workflows/ci.yml, docs/SECURITY.md
 **Interfaces:** Proves pinned source contains LiteLLM 1.109.0 and OpenAI Auto Router primitives.
-- [ ] Verify source SHA is descendant of merged subscription passthrough PR.
-- [ ] Verify pyproject version and Auto Router preset markers by immutable raw URLs.
-- [ ] Document the 1.107.0 compromised-artifact prohibition.
-- [ ] Commit.
+- [x] Verify source SHA is descendant of merged subscription passthrough PR.
+- [x] Verify pyproject version and Auto Router preset markers by immutable raw URLs.
+- [x] Document the 1.107.0 compromised-artifact prohibition.
+- [x] Commit.
 
 ### Task 4: K2 Windows subscription passthrough
 **Files:** scripts/windows/verify.ps1, docs/K2-WINDOWS.md (future)
@@ -68,7 +68,7 @@
 **Interfaces:** Produces the account-verified route map used by Superpowers workers.
 - [ ] Verify the subscription can call `gpt-6-luna`, `gpt-6.1-terra`, `gpt-6.1-sol`, and `gpt-6-astra`.
 - [ ] Keep unsupported tiers disabled rather than silently falling back to paid API routes.
-- [ ] Expose the router under the known `gpt-6.1-sol` slug; keep actual models behind internal aliases.
+- [x] Expose the router under the known `gpt-6.1-sol` slug; keep actual models behind internal aliases.
 - [ ] Verify short, normal, complex, and reasoning-heavy prompts route to expected tiers in LiteLLM logs.
 
 ### Task 6: Superpowers/subagents and escalation

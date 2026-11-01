@@ -6,7 +6,9 @@ This repository is deliberately staged. It does **not** enable Auto Router first
 
 ## Current status
 
-K0/K1 scaffold is under test. The baseline has no OpenAI API key and no paid API fallback. LiteLLM is source-pinned to `4bdeb1378bb19a453cd3c49d383ebe76f057d2c6`, which is after the merged subscription-passthrough change and reports version 1.109.0 in `pyproject.toml`.
+K0/K1 static gates are green on GitHub Actions: repository contract tests, independent validator, Docker Compose rendering with disposable CI values, Windows PowerShell parsing, and immutable upstream-contract checks all pass. The source-build/health heavy smoke gate is tracked separately. K2 live Codex/ChatGPT subscription passthrough has **not** been claimed yet and must be proven on the user's Windows Codex App.
+
+The baseline has no OpenAI API key and no paid API fallback. LiteLLM is source-pinned to `4bdeb1378bb19a453cd3c49d383ebe76f057d2c6`, which is after the merged subscription-passthrough change and reports version 1.109.0 in `pyproject.toml`.
 
 ## Safety properties
 
@@ -27,4 +29,4 @@ pwsh -File .\scripts\windows\install.ps1 -Mode subscription
 
 After K2 is proven, `-Mode autorouter` becomes eligible. In Auto Router mode the proxy deliberately exposes the router as the already-known `gpt-6.1-sol` slug while Luna/Terra/Sol/Astra use internal aliases. This avoids a custom Codex model-catalog entry and the large tool-schema resend penalty documented by LiteLLM. Do not begin with Auto Router.
 
-See `docs/PLAN.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, and `docs/ROLLBACK.md`.
+See `docs/STATUS.md`, `docs/PLAN.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/EVIDENCE.md`, and `docs/ROLLBACK.md`.
