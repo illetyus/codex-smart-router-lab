@@ -224,6 +224,51 @@ jobs:
           if ($envLines -notcontains 'EXISTING_VAR=keep') { throw 'Dotenv restore lost the original variable' }
           if (($envLines -join [char]10) -match 'LITELLM_API_KEY') { throw 'Dotenv restore retained the LiteLLM key' }
 
+      - name: Verify managed AGENTS policy is idempotent and surgically removable
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP 'codex-policy'
+          $codexHome = Join-Path $testRoot 'codex'
+          New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
+          'EXISTING POLICY LINE' | Set-Content -Path (Join-Path $codexHome 'AGENTS.md') -Encoding utf8NoBOM
+
+          & ./scripts/windows/configure-smart-router-policy.ps1 -CodexHome $codexHome | Out-Null
+          & ./scripts/windows/configure-smart-router-policy.ps1 -CodexHome $codexHome | Out-Null
+          $managed = Get-Content -Raw -Path (Join-Path $codexHome 'AGENTS.md')
+          if ([regex]::Matches($managed, 'CODEX-SMART-ROUTER:BEGIN').Count -ne 1) { throw 'Managed policy duplicated' }
+          if ($managed -notmatch 'EXISTING POLICY LINE') { throw 'Existing policy was lost' }
+          if ($managed -notmatch 'gpt-6\.1-terra') { throw 'Router policy was not installed' }
+
+          & ./scripts/windows/restore-smart-router-policy.ps1 -CodexHome $codexHome | Out-Null
+          $restored = Get-Content -Raw -Path (Join-Path $codexHome 'AGENTS.md')
+          if ($restored -notmatch 'EXISTING POLICY LINE') { throw 'Existing policy was not preserved' }
+          if ($restored -match 'CODEX-SMART-ROUTER:BEGIN') { throw 'Managed policy was not removed' }
+
+      - name: Verify rollback preserves post-install drift in conflict copies
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP 'codex-rollback-drift'
+          $codexHome = Join-Path $testRoot 'codex'
+          New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
+          $config = Join-Path $codexHome 'config.toml'
+          $envFile = Join-Path $codexHome '.env'
+          'model_provider = "openai"' | Set-Content -Path $config -Encoding utf8NoBOM
+          'EXISTING_VAR=keep' | Set-Content -Path $envFile -Encoding utf8NoBOM
+          Copy-Item $envFile (Join-Path $codexHome '.env.pre-litellm-backup')
+
+          & ./scripts/windows/configure-codex-provider.ps1 -CodexHome $codexHome | Out-Null
+          Add-Content -Path $config -Value '# POST_INSTALL_CONFIG_CHANGE'
+          'LITELLM_API_KEY=sk-test-virtual' | Add-Content -Path $envFile
+          $envHash = (Get-FileHash -Algorithm SHA256 -Path $envFile).Hash
+          Set-Content -Path (Join-Path $codexHome '.env.pre-litellm-applied.sha256') -Value $envHash -Encoding ascii
+          Add-Content -Path $envFile -Value 'POST_INSTALL_ENV_CHANGE=1'
+
+          $result = & ./scripts/windows/restore-codex-provider.ps1 -CodexHome $codexHome | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($result.ConfigConflictCopy) -or -not (Test-Path $result.ConfigConflictCopy)) { throw 'Config drift conflict copy missing' }
+          if ([string]::IsNullOrWhiteSpace($result.EnvConflictCopy) -or -not (Test-Path $result.EnvConflictCopy)) { throw 'Env drift conflict copy missing' }
+          if ((Get-Content -Raw $result.ConfigConflictCopy) -notmatch 'POST_INSTALL_CONFIG_CHANGE') { throw 'Config drift was not preserved' }
+          if ((Get-Content -Raw $result.EnvConflictCopy) -notmatch 'POST_INSTALL_ENV_CHANGE') { throw 'Env drift was not preserved' }
+
   upstream-contract:
     runs-on: ubuntu-latest
     steps:
