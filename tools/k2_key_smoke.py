@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-EXPECTED_MODELS = {"gpt-6.1-sol", "codex-*"}
+EXPECTED_MODELS = {"gpt-6.1-sol", "gpt-image-2", "codex-*"}
 
 
 def request_json(url: str, *, bearer: str, payload: dict[str, object] | None = None) -> dict[str, object]:
@@ -33,10 +34,11 @@ def generate_key(base_url: str, master_key: str) -> str:
     return key
 
 
-def verify_key_models(base_url: str, virtual_key: str) -> None:
+def verify_key_models(base_url: str, master_key: str, virtual_key: str) -> None:
+    query = urlencode({"key": virtual_key})
     data = request_json(
-        f"{base_url.rstrip('/')}/key/info",
-        bearer=virtual_key,
+        f"{base_url.rstrip('/')}/key/info?{query}",
+        bearer=master_key,
     )
     info = data.get("info")
     if not isinstance(info, dict):
@@ -56,7 +58,7 @@ def main() -> int:
     args = parser.parse_args()
 
     virtual_key = generate_key(args.base_url, args.master_key)
-    verify_key_models(args.base_url, virtual_key)
+    verify_key_models(args.base_url, args.master_key, virtual_key)
     print(json.dumps({"key_alias": "codex-k2-ci", "models": sorted(EXPECTED_MODELS)}))
     return 0
 
