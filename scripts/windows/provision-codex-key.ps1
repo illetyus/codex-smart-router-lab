@@ -77,10 +77,9 @@ if ([string]::IsNullOrWhiteSpace($virtualKey) -or -not $virtualKey.StartsWith('s
     throw 'LiteLLM did not return a virtual key.'
 }
 
-$encodedVirtualKey = [uri]::EscapeDataString($virtualKey)
-$keyInfo = Invoke-RestMethod -Method Get -Uri "$base/key/info?key=$encodedVirtualKey" -Headers $masterHeaders -TimeoutSec 30
-
-$actualModels = @($keyInfo.info.models | ForEach-Object { [string]$_ } | Sort-Object)
+# /key/generate already returns the granted model list. Use that response here
+# instead of placing the real virtual key in a management URL/query string.
+$actualModels = @($created.models | ForEach-Object { [string]$_ } | Sort-Object)
 $expectedModels = @($models | Sort-Object)
 if (($actualModels -join [char]0) -ne ($expectedModels -join [char]0)) {
     throw "LiteLLM returned an unexpected model allowlist: $($actualModels -join ', ')"
@@ -95,6 +94,7 @@ $backup = Join-Path $CodexHome '.env.pre-litellm-backup'
 
 if ((Test-Path -LiteralPath $codexEnv) -and -not (Test-Path -LiteralPath $backup)) {
     Copy-Item -LiteralPath $codexEnv -Destination $backup
+    Protect-SecretFile -Path $backup
 }
 
 $existing = @()
