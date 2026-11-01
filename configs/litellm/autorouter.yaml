@@ -1,0 +1,51 @@
+# Catalog-free Codex routing mode.
+# The external model name deliberately shadows a model Codex already knows
+# (gpt-6.1-sol), avoiding an unknown custom alias and the associated tool-schema
+# resend overhead. The actual ChatGPT models live behind internal aliases.
+model_list:
+  - model_name: gpt-6.1-sol
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        classifier_type: heuristic
+        classification_mode: user_turn
+        context_compaction: false
+        stall_escalation_enabled: false
+        tiers:
+          SIMPLE: luna-upstream
+          MEDIUM: terra-upstream
+          COMPLEX: sol-upstream
+          REASONING: astra-upstream
+        tier_model_configs:
+          REASONING:
+            - model_name: astra-upstream
+              litellm_params:
+                reasoning_effort: xhigh
+      complexity_router_default_model: terra-upstream
+
+  - model_name: luna-upstream
+    litellm_params:
+      model: chatgpt/gpt-6-luna
+    model_info:
+      mode: responses
+
+  - model_name: terra-upstream
+    litellm_params:
+      model: chatgpt/gpt-6.1-terra
+    model_info:
+      mode: responses
+
+  - model_name: sol-upstream
+    litellm_params:
+      model: chatgpt/gpt-6.1-sol
+    model_info:
+      mode: responses
+
+  - model_name: astra-upstream
+    litellm_params:
+      model: chatgpt/gpt-6-astra
+    model_info:
+      mode: responses
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

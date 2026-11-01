@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install --disable-pip-version-check pytest pyyaml
+      - run: pytest -q
+      - run: python tools/validate_repo.py
+      - run: docker compose config --quiet
+
+  powershell-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts without executing them
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts/windows/*.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              $errors | ForEach-Object { Write-Error "${($_.Extent.File)}:${($_.Extent.StartLineNumber)} $($_.Message)" }
+            }
+          }
+          if ($failed) { exit 1 }
+
+  upstream-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify pinned LiteLLM source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          REF=4bdeb1378bb19a453cd3c49d383ebe76f057d2c6
+          BASE=https://raw.githubusercontent.com/BerriAI/litellm/$REF
+          curl -fsSLo /tmp/pyproject.toml "$BASE/pyproject.toml"
+          curl -fsSLo /tmp/presets.json "$BASE/litellm/proxy/public_endpoints/autorouter_presets.json"
+          grep -F 'version = "1.109.0"' /tmp/pyproject.toml
+          grep -F '"openai_family"' /tmp/presets.json
+          grep -F '"gpt-6-luna"' /tmp/presets.json
+          grep -F '"gpt-6-astra"' /tmp/presets.json

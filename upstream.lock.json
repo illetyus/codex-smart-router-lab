@@ -1,0 +1,17 @@
+{
+  "litellm": {
+    "repository": "BerriAI/litellm",
+    "commit": "4bdeb1378bb19a453cd3c49d383ebe76f057d2c6",
+    "version": "1.109.0",
+    "github_signature_verified": true,
+    "subscription_passthrough_merge": "2e27a02a9fce9bdc6ece13ba3cb8222dc5b6ecfa",
+    "source_commit_date": "2026-10-28T01:29:35Z"
+  },
+  "blocked_artifacts": [
+    "litellm==1.107.0"
+  ],
+  "security_notes": [
+    "Do not replace the full commit SHA with main/latest/main-stable.",
+    "The blocked 1.107.0 PyPI/Docker artifacts were compromised on 2026-10-21."
+  ]
+}

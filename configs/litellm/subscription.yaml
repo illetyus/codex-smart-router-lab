@@ -1,0 +1,9 @@
+model_list:
+  - model_name: gpt-6.1-sol
+    litellm_params:
+      model: chatgpt/gpt-6.1-sol
+    model_info:
+      mode: responses
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
