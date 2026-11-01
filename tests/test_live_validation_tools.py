@@ -72,3 +72,13 @@ def test_live_validation_runbook_names_required_evidence_artifacts():
         "escalation-evidence.json",
     ):
         assert name in text
+
+
+def test_windows_evidence_wrapper_is_secret_safe():
+    path = ROOT / "scripts/windows/collect-live-evidence.ps1"
+    assert path.exists()
+    text = path.read_text(encoding="utf-8")
+    assert "collect_rollout_evidence.py" in text
+    assert "supported-model-effort.json" in text
+    assert "Authorization" not in text
+    assert "LITELLM_API_KEY=" not in text
