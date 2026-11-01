@@ -50,7 +50,7 @@ def test_calibration_prompts_cover_four_router_classes():
 def test_escalation_fixture_fails_for_one_deterministic_reason():
     fixture = ROOT / "fixtures/escalation_lab"
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", str(fixture / "fixture_test.py")],
+        [sys.executable, "-m", "pytest", "-q", str(fixture / "failure_case.py")],
         cwd=ROOT,
         text=True,
         capture_output=True,
