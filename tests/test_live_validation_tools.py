@@ -12,16 +12,16 @@ def test_rollout_evidence_collector_extracts_model_effort_and_parent(tmp_path):
     parent = root / "parent.jsonl"
     parent.write_text(
         "\n".join([
-            json.dumps({"type":"session_meta","payload":{"id":"parent","parent_thread_id":None,"agent_role":"controller","source":"app"}}),
-            json.dumps({"type":"turn_context","payload":{"model":"gpt-6.1-sol","effort":"medium"}}),
+            json.dumps({"timestamp":"2026-11-01T00:00:00Z","ordinal":0,"type":"session_meta","payload":{"meta":{"id":"parent","parent_thread_id":None,"agent_role":"controller","source":"app"},"git":None}}),
+            json.dumps({"timestamp":"2026-11-01T00:00:01Z","ordinal":1,"type":"turn_context","payload":{"model":"gpt-6.1-sol","effort":"medium"}}),
         ]) + "\n",
         encoding="utf-8",
     )
     child = root / "child.jsonl"
     child.write_text(
         "\n".join([
-            json.dumps({"type":"session_meta","payload":{"id":"child","parent_thread_id":"parent","agent_role":"worker","source":"subagent"}}),
-            json.dumps({"type":"turn_context","payload":{"model":"gpt-6-luna","effort":"medium"}}),
+            json.dumps({"timestamp":"2026-11-01T00:00:02Z","ordinal":0,"type":"session_meta","payload":{"meta":{"id":"child","parent_thread_id":"parent","agent_role":"worker","source":"subagent"},"git":None}}),
+            json.dumps({"timestamp":"2026-11-01T00:00:03Z","ordinal":1,"type":"turn_context","payload":{"model":"gpt-6-luna","effort":"medium"}}),
         ]) + "\n",
         encoding="utf-8",
     )
@@ -89,11 +89,11 @@ def test_rollout_collector_tolerates_bom_unknown_and_malformed_lines(tmp_path):
     root.mkdir()
     path = root / "rollout.jsonl"
     payload = (
-        "\ufeff" + json.dumps({"type":"session_meta","payload":{"id":"bom-session","parent_thread_id":None,"agent_role":"controller"}})
+        "\ufeff" + json.dumps({"timestamp":"2026-11-01T00:00:00Z","ordinal":0,"type":"session_meta","payload":{"meta":{"id":"bom-session","parent_thread_id":None,"agent_role":"controller"},"git":None}})
         + "\nnot-json\n"
         + json.dumps({"type":"future_event","payload":{"ignored":True}})
         + "\n"
-        + json.dumps({"type":"turn_context","payload":{"model":"gpt-6-sol","effort":{"level":"high"}}})
+        + json.dumps({"timestamp":"2026-11-01T00:00:01Z","ordinal":2,"type":"turn_context","payload":{"model":"gpt-6-sol","effort":{"level":"high"}}})
         + "\n"
     )
     path.write_text(payload, encoding="utf-8")
@@ -109,3 +109,20 @@ def test_rollout_collector_tolerates_bom_unknown_and_malformed_lines(tmp_path):
     assert row["session_id"] == "bom-session"
     assert row["model"] == "gpt-6-sol"
     assert row["effort"] == "high"
+
+
+def test_rollout_collector_fails_when_no_model_evidence_exists(tmp_path):
+    root = tmp_path / "sessions"
+    root.mkdir()
+    (root / "empty.jsonl").write_text(
+        json.dumps({"timestamp":"2026-11-01T00:00:00Z","ordinal":0,"type":"session_meta","payload":{"meta":{"id":"empty"},"git":None}}) + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "evidence.json"
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "tools/collect_rollout_evidence.py"), "--sessions-root", str(root), "--out", str(out)],
+        text=True,
+        capture_output=True,
+    )
+    assert proc.returncode != 0
+    assert "No rollout model/effort evidence found" in (proc.stdout + proc.stderr)
