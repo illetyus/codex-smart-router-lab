@@ -85,3 +85,17 @@ If any model fails, keep Auto Router disabled and adjust the routing ladder to t
 ## Evidence note
 
 The pinned LiteLLM 1.109 source forwards ChatGPT Responses requests generically, but static catalog/cost metadata is not treated as proof of account entitlement. K3 intentionally uses live subscription probes as the source of truth.
+
+
+## Effort entitlement matrix
+
+Before Auto Router is enabled, verify not only each model but the model/effort pair the controller will request:
+
+- `gpt-6-luna / medium`
+- `gpt-6.1-terra / medium`
+- `gpt-6-sol / high`
+- `gpt-6-astra / high`
+
+These are the conservative pre-probe defaults. Extra High/Max is not assumed because availability can vary by model, plan, client, and account. Record the effective model and effort from the Codex rollout metadata. If a pair is unavailable, lower the policy before K4 rather than adding an API fallback.
+
+The model-probe key also permits `gpt-image-2` so the Codex image tool can be verified separately without a broad `gpt-*` wildcard.

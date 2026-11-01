@@ -12,7 +12,7 @@ worker_tiers:
     reasoning_effort: high
   critical:
     model: gpt-6-astra
-    reasoning_effort: xhigh
+    reasoning_effort: high
 
 fix_loop:
   rounds_1_3:

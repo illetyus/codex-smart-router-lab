@@ -32,6 +32,12 @@ model_list:
     model_info:
       mode: responses
 
+  - model_name: gpt-image-2
+    litellm_params:
+      model: chatgpt/gpt-image-2
+    model_info:
+      mode: responses
+
   - model_name: codex-*
     litellm_params:
       model: chatgpt/codex-*

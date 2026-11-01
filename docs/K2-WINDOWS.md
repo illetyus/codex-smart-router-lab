@@ -60,7 +60,7 @@ model_provider = "litellm_subscription"
 
 [model_providers.litellm_subscription]
 name = "LiteLLM subscription"
-base_url = "http://localhost:4000/v1"
+base_url = "http://127.0.0.1:4000/v1"
 wire_api = "responses"
 supports_websockets = false
 requires_openai_auth = true
@@ -119,3 +119,12 @@ Restart Codex and prove a direct Codex chat works again before K2 is marked comp
 - https://docs.litellm.ai/docs/tutorials/openai_codex_byok
 - https://docs.litellm.ai/docs/tutorials/codex_chatgpt_auto_router
 - https://docs.litellm.ai/docs/proxy/virtual_keys
+
+
+## Restart is part of the evidence gate
+
+The desktop app/background server may retain the provider environment that existed when it started. After writing `%USERPROFILE%\.codex\.env` or changing `config.toml`, fully exit the Codex/ChatGPT desktop process and start it again. A file-only verification is not sufficient.
+
+K2 passes only when a brand-new Codex turn after that restart appears in LiteLLM logs through the local gateway. The prompt remains the minimal no-tool probe. Do not infer passthrough from `verify.ps1` alone.
+
+The K2 virtual key is created with a 30-day lifetime, is ACL-restricted to the current Windows user, and includes the explicit `gpt-image-2` route needed by Codex image generation. The production provisioner validates the allowlist from `/key/generate`; it does not put the real virtual key in a URL.

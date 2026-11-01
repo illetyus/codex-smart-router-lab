@@ -30,6 +30,8 @@ def validate() -> list[str]:
     sub_routes = {m["model_name"]: m["litellm_params"].get("model") for m in sub["model_list"]}
     if sub_routes.get("codex-*") != "chatgpt/codex-*":
         errors.append("Baseline must preserve codex-* approval/review passthrough")
+    if sub_routes.get("gpt-image-2") != "chatgpt/gpt-image-2":
+        errors.append("Baseline must preserve Codex gpt-image-2 subscription routing")
 
     auto = yaml.safe_load((ROOT / "configs/litellm/autorouter.yaml").read_text())
     routers = [
@@ -66,6 +68,8 @@ def validate() -> list[str]:
     }
     if auto_routes.get("codex-*") != "chatgpt/codex-*":
         errors.append("Auto Router config must preserve codex-* approval/review passthrough")
+    if auto_routes.get("gpt-image-2") != "chatgpt/gpt-image-2":
+        errors.append("Auto Router config must preserve Codex gpt-image-2 subscription routing")
 
     expected_upstreams = {
         "luna-upstream": "chatgpt/gpt-6-luna",
@@ -93,6 +97,8 @@ def validate() -> list[str]:
 
     codex = tomllib.loads((ROOT / "configs/codex/provider.subscription.toml").read_text())
     provider = codex["model_providers"]["litellm_subscription"]
+    if provider.get("base_url") != "http://127.0.0.1:4000/v1":
+        errors.append("Codex provider must use the same IPv4 loopback address the gateway binds")
     if provider.get("requires_openai_auth") is not True:
         errors.append("Codex provider must preserve ChatGPT authentication")
     if "env_key" in provider:

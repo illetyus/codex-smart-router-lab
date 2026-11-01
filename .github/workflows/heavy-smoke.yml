@@ -38,6 +38,7 @@ jobs:
         shell: bash
         run: |
           curl --fail --silent --show-error http://127.0.0.1:4000/health/liveliness
+          curl --fail --silent --show-error http://127.0.0.1:4000/health/readiness
       - name: Prove restricted K2 virtual key
         run: python tools/k2_key_smoke.py --master-key sk-ci-only-not-a-real-secret
       - name: Restart with router-free model probe config
@@ -45,7 +46,7 @@ jobs:
         run: |
           CODEX_ROUTER_CONFIG=model-probe.yaml docker compose up -d --force-recreate litellm
           for i in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:4000/health/liveliness >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:4000/health/liveliness >/dev/null && curl --fail --silent http://127.0.0.1:4000/health/readiness >/dev/null; then
               exit 0
             fi
             sleep 2
@@ -57,7 +58,7 @@ jobs:
         run: |
           CODEX_ROUTER_CONFIG=autorouter.yaml docker compose up -d --force-recreate litellm
           for i in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:4000/health/liveliness >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:4000/health/liveliness >/dev/null && curl --fail --silent http://127.0.0.1:4000/health/readiness >/dev/null; then
               exit 0
             fi
             sleep 2

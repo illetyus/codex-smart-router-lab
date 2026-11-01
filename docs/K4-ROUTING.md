@@ -49,3 +49,18 @@ LiteLLM supports wildcard model deployments, but this lab does not need one. Exp
 
 - Codex source snapshot: `67f0994b532b8740f14b5b738af7b7b2a915b1d6` — MultiAgentV2 `spawn_agent` accepts explicit `model` and `reasoning_effort`.
 - Superpowers source snapshot: `2ce8aa15d05bd57213e6f746f953aafb7ded7a8b` — explicitly requires a model on dispatch and raises capability on fix-loop rounds 4–5.
+
+
+## Runtime key and loaded policy
+
+After K3 succeeds, provision `-Profile runtime`. This is a distinct operational profile even though its current allowlist matches the K3 probe surface. It permits only the public controller/worker models, `gpt-image-2`, and `codex-*`; never grant `*-upstream`.
+
+Install the managed governance block only at K4:
+
+```powershell
+pwsh -File .\scripts\windows\configure-smart-router-policy.ps1
+```
+
+Codex loads global instructions from `%USERPROFILE%\.codex\AGENTS.md`, and subagents inherit applicable instructions. The managed block requires explicit `model` and `reasoning_effort` on every worker dispatch and maps roles to the verified K3 ladder.
+
+This is instruction-level governance, not a security boundary. Do **not** make `PreToolUse` rewriting of `spawn_agent` load-bearing: OpenAI Codex issue #49736 remains an explicit compatibility blocker for that enforcement approach. Effective rollout metadata is still the K4 acceptance test.

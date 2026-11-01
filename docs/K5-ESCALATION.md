@@ -52,3 +52,10 @@ If Codex adds a documented, stable failure field to `PostToolUse` or a dedicated
 - Codex source snapshot: `67f0994b532b8740f14b5b738af7b7b2a915b1d6`.
 - Superpowers source snapshot: `2ce8aa15d05bd57213e6f746f953aafb7ded7a8b`.
 - Codex issue: #34289, “PostToolUse payload carries no failure signal”.
+
+
+## Enforcement boundary
+
+The repository now ships a Codex AGENTS policy that mirrors the Superpowers fix loop, but it intentionally does not pretend to be a hard hook-based controller. Codex issue #49736 documents `PreToolUse` not firing for `spawn_agent` in affected interactive Windows sessions, and issue #34289 documents that generic `PostToolUse` lacks a reliable failure discriminator.
+
+Therefore the load-bearing K5 path remains Superpowers' explicit worker dispatch and fix-loop state: rounds 1-3 same implementer, rounds 4-5 fresh stronger worker, then breaker/controller review. A future hard hook/controller may be added only after those upstream contracts are reverified on the installed Codex version.

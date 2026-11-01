@@ -40,6 +40,7 @@ def test_subscription_baseline_is_one_explicit_chatgpt_model_with_no_paid_fallba
     routes = {m['model_name']: m['litellm_params']['model'] for m in models}
     assert routes == {
         'gpt-6.1-sol': 'chatgpt/gpt-6.1-sol',
+        'gpt-image-2': 'chatgpt/gpt-image-2',
         'codex-*': 'chatgpt/codex-*',
     }
     serialized = json.dumps(cfg)
@@ -102,7 +103,7 @@ def test_autorouter_uses_upstream_tier_model_configs_shape():
     rcfg = router['litellm_params']['complexity_router_config']
     assert 'tier_model_params' not in rcfg
     assert rcfg['tier_model_configs']['REASONING'] == [
-        {'model_name': 'astra-upstream', 'litellm_params': {'reasoning_effort': 'xhigh'}}
+        {'model_name': 'astra-upstream', 'litellm_params': {'reasoning_effort': 'high'}}
     ]
 
 
@@ -265,7 +266,7 @@ def test_escalation_policy_matches_superpowers_fix_loop():
         'mechanical': {'model': 'gpt-6-luna', 'reasoning_effort': 'medium'},
         'integration': {'model': 'gpt-6.1-terra', 'reasoning_effort': 'medium'},
         'difficult': {'model': 'gpt-6-sol', 'reasoning_effort': 'high'},
-        'critical': {'model': 'gpt-6-astra', 'reasoning_effort': 'xhigh'},
+        'critical': {'model': 'gpt-6-astra', 'reasoning_effort': 'high'},
     }
     assert cfg['fix_loop']['rounds_1_3']['action'] == 'retry_same_worker'
     assert cfg['fix_loop']['rounds_4_5']['action'] == 'fresh_worker_promote_one_tier'
@@ -297,8 +298,9 @@ def test_heavy_smoke_proves_restricted_k2_virtual_key_contract():
     text = tool.read_text()
     assert '/key/generate' in text
     assert '/key/info' in text
-    assert '?key=' not in text
-    assert 'bearer=virtual_key' in text
+    assert '?key=' in text
+    assert 'bearer=master_key' in text
+    assert 'bearer=virtual_key' not in text
     assert 'gpt-6.1-sol' in text
     assert 'codex-*' in text
     assert '/responses' not in text
@@ -317,6 +319,7 @@ def test_k3_model_probe_mode_exists_before_autorouter():
         'gpt-6.1-terra': 'chatgpt/gpt-6.1-terra',
         'gpt-6-sol': 'chatgpt/gpt-6-sol',
         'gpt-6-astra': 'chatgpt/gpt-6-astra',
+        'gpt-image-2': 'chatgpt/gpt-image-2',
         'codex-*': 'chatgpt/codex-*',
     }
     serialized = json.dumps(cfg)
@@ -345,12 +348,16 @@ def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
     path = ROOT / 'scripts/windows/provision-codex-key.ps1'
     assert path.exists(), 'missing Windows Codex key provisioner'
     text = path.read_text()
-    assert "[ValidateSet('k2','k3')]" in text
-    assert "'gpt-6.1-sol', 'codex-*'" in text
+    assert "[ValidateSet('k2','k3','runtime')]" in text
+    assert "'gpt-6.1-sol'" in text
+    assert "'codex-*'" in text
+    assert "'gpt-image-2'" in text
     for model in ('gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra'):
         assert model in text
     assert '/key/generate' in text
-    assert '/key/info' in text
+    assert '/key/info' not in text
+    assert '?key=' not in text
+    assert '$created.models' in text
     assert 'Write-Host $virtualKey' not in text
     assert 'Write-Output $virtualKey' not in text
     assert 'LITELLM_API_KEY=' in text
@@ -368,7 +375,7 @@ def test_windows_codex_provider_configurator_and_restore_contract():
     assert "config.toml.pre-litellm-backup" in c
     assert 'model_provider = "litellm_subscription"' in c
     assert '[model_providers.litellm_subscription]' in c
-    assert 'base_url = "http://localhost:4000/v1"' in c
+    assert 'base_url = "http://127.0.0.1:4000/v1"' in c
     assert 'wire_api = "responses"' in c
     assert 'requires_openai_auth = true' in c
     assert 'x-litellm-api-key' in c
@@ -379,3 +386,120 @@ def test_windows_codex_provider_configurator_and_restore_contract():
     assert "config.toml.pre-litellm-backup" in r
     assert ".env.pre-litellm-backup" in r
     assert 'auth.json' not in r
+
+
+def test_codex_image_route_is_explicitly_preserved_everywhere():
+    for name in ('subscription.yaml', 'model-probe.yaml', 'autorouter.yaml'):
+        cfg = yaml.safe_load((ROOT / 'configs/litellm' / name).read_text())
+        routes = {m['model_name']: m['litellm_params']['model'] for m in cfg['model_list']}
+        assert routes['gpt-image-2'] == 'chatgpt/gpt-image-2'
+
+
+def test_runtime_key_profile_matches_public_router_surface():
+    text = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    assert "'runtime'" in text
+    for model in ('gpt-6.1-sol', 'gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra', 'gpt-image-2', 'codex-*'):
+        assert model in text
+
+
+def test_preflight_checks_compose_powershell_and_loopback_port():
+    text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    assert 'docker compose version' in text
+    assert 'PowerShell7' in text
+    assert 'Port4000Available' in text
+
+
+def test_heavy_smoke_checks_readiness_not_only_liveliness():
+    text = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert '/health/readiness' in text
+
+
+def test_router_policy_is_wired_into_a_codex_agents_template():
+    policy = ROOT / 'configs/codex/AGENTS.smart-router.md'
+    assert policy.exists()
+    text = policy.read_text()
+    assert 'gpt-6-luna' in text
+    assert 'gpt-6.1-terra' in text
+    assert 'gpt-6-sol' in text
+    assert 'gpt-6-astra' in text
+    assert 'rounds 4' in text.lower()
+    assert 'reasoning_effort' in text
+    assert 'PreToolUse' in text
+    assert '#49736' in text
+
+
+def test_policy_installer_and_restore_are_present_and_managed_block_safe():
+    install = ROOT / 'scripts/windows/configure-smart-router-policy.ps1'
+    restore = ROOT / 'scripts/windows/restore-smart-router-policy.ps1'
+    assert install.exists()
+    assert restore.exists()
+    itext = install.read_text()
+    rtext = restore.read_text()
+    assert 'CODEX-SMART-ROUTER:BEGIN' in itext
+    assert 'CODEX-SMART-ROUTER:END' in itext
+    assert 'CODEX-SMART-ROUTER:BEGIN' in rtext
+    assert 'CODEX-SMART-ROUTER:END' in rtext
+
+
+def test_restore_detects_post_install_config_drift_before_overwrite():
+    configure = (ROOT / 'scripts/windows/configure-codex-provider.ps1').read_text()
+    restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
+    assert 'config.toml.pre-litellm-applied.sha256' in configure
+    assert 'config.toml.pre-litellm-applied.sha256' in restore
+    assert 'pre-litellm-restore-conflict' in restore
+
+
+def test_autorouter_declares_effort_for_each_controller_tier():
+    cfg = yaml.safe_load((ROOT / 'configs/litellm/autorouter.yaml').read_text())
+    router = next(x for x in cfg['model_list'] if x['model_name'] == 'gpt-6.1-sol')
+    tm = router['litellm_params']['complexity_router_config']['tier_model_configs']
+    assert tm['SIMPLE'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
+    assert tm['MEDIUM'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high'}
+    assert tm['COMPLEX'][0]['litellm_params']['reasoning_effort'] in {'low','medium','high','xhigh'}
+    assert tm['REASONING'][0]['litellm_params']['reasoning_effort'] == 'high'
+
+
+def test_restore_tracks_codex_dotenv_applied_hash_and_conflicts():
+    provision = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
+    assert '.env.pre-litellm-applied.sha256' in provision
+    assert '.env.pre-litellm-applied.sha256' in restore
+    assert 'pre-litellm-restore-conflict' in restore
+
+
+def test_secret_files_are_acl_hardened_and_virtual_keys_expire():
+    install = (ROOT / 'scripts/windows/install.ps1').read_text()
+    provision = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
+    assert 'Protect-SecretFile' in install
+    assert 'Protect-SecretFile' in provision
+    assert 'Protect-SecretFile' in restore
+    assert 'SetAccessRuleProtection' in install
+    assert 'SetAccessRuleProtection' in provision
+    assert "[string]$Duration = '30d'" in provision
+    assert 'duration = $Duration' in provision
+
+
+def test_installer_rejects_placeholder_or_weak_existing_env():
+    text = (ROOT / 'scripts/windows/install.ps1').read_text()
+    assert 'CHANGE_ME' in text
+    assert 'OPENAI_API_KEY' in text
+    assert 'existing .env failed validation' in text
+
+
+def test_virtual_key_revocation_helper_is_present_and_secret_safe():
+    path = ROOT / 'scripts/windows/revoke-codex-key.ps1'
+    assert path.exists()
+    text = path.read_text()
+    assert '/key/delete' in text
+    assert 'keys = @($virtualKey)' in text
+    assert 'LITELLM_MASTER_KEY' in text
+    assert 'LITELLM_API_KEY' in text
+    assert 'Write-Host $virtualKey' not in text
+    assert 'Write-Output $virtualKey' not in text
+    assert 'Protect-SecretFile' in text
+
+
+def test_models_are_config_owned_not_db_mutable():
+    compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
+    assert compose['services']['litellm']['environment']['STORE_MODEL_IN_DB'] == 'False'

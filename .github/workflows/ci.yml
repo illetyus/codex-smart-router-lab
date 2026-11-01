@@ -84,11 +84,12 @@ jobs:
           @'
           import json
           from http.server import BaseHTTPRequestHandler, HTTPServer
+          from urllib.parse import parse_qs, urlsplit
 
           MASTER = "Bearer sk-test-master"
           VIRTUAL = "sk-test-virtual"
-          K2_MODELS = ["gpt-6.1-sol", "codex-*"]
-          K3_MODELS = ["gpt-6.1-sol", "gpt-6-luna", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-astra", "codex-*"]
+          K2_MODELS = ["gpt-6.1-sol", "gpt-image-2", "codex-*"]
+          K3_MODELS = ["gpt-6.1-sol", "gpt-6-luna", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-astra", "gpt-image-2", "codex-*"]
           current_models = K2_MODELS
 
           class Handler(BaseHTTPRequestHandler):
@@ -105,36 +106,62 @@ jobs:
 
               def do_POST(self):
                   global current_models
-                  if self.path != "/key/generate":
-                      return self.send_json(404, {"error": "not found"})
                   if self.headers.get("Authorization") != MASTER:
                       return self.send_json(401, {"error": "bad master key"})
                   length = int(self.headers.get("Content-Length", "0"))
                   payload = json.loads(self.rfile.read(length) or b"{}")
+                  if self.path == "/key/delete":
+                      if payload.get("keys") != [VIRTUAL]:
+                          return self.send_json(400, {"error": "unexpected revoke key"})
+                      return self.send_json(200, {"deleted_keys": [VIRTUAL]})
+                  if self.path != "/key/generate":
+                      return self.send_json(404, {"error": "not found"})
                   requested = payload.get("models", [])
                   allowed = {tuple(sorted(K2_MODELS)), tuple(sorted(K3_MODELS))}
                   if tuple(sorted(requested)) not in allowed:
                       return self.send_json(400, {"error": "unexpected models"})
+                  if payload.get("duration") != "30d":
+                      return self.send_json(400, {"error": "unexpected duration"})
                   current_models = requested
-                  self.send_json(200, {"key": VIRTUAL})
+                  self.send_json(200, {"key": VIRTUAL, "models": requested, "expires": "2026-12-01T00:00:00Z"})
 
               def do_GET(self):
-                  if self.path != "/key/info":
+                  parsed = urlsplit(self.path)
+                  if parsed.path != "/key/info":
                       return self.send_json(404, {"error": "not found"})
-                  if self.headers.get("Authorization") != f"Bearer {VIRTUAL}":
-                      return self.send_json(401, {"error": "bad virtual key"})
+                  if self.headers.get("Authorization") != MASTER:
+                      return self.send_json(401, {"error": "bad master key"})
+                  if parse_qs(parsed.query).get("key") != [VIRTUAL]:
+                      return self.send_json(400, {"error": "missing key query"})
                   self.send_json(200, {"info": {"models": current_models}})
 
           HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
           '@ | Set-Content -Path $serverPath -Encoding utf8
 
-          $server = Start-Process python -ArgumentList $serverPath -PassThru
+          python -m py_compile $serverPath
+          if ($LASTEXITCODE -ne 0) { throw 'Mock LiteLLM server failed Python syntax validation' }
+          $serverOut = Join-Path $testRoot 'mock.stdout.log'
+          $serverErr = Join-Path $testRoot 'mock.stderr.log'
+          $server = Start-Process python -ArgumentList @('-u', $serverPath) -RedirectStandardOutput $serverOut -RedirectStandardError $serverErr -PassThru
           try {
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 1
+            if ($server.HasExited) {
+              $stderr = if (Test-Path $serverErr) { Get-Content -Raw $serverErr } else { '' }
+              throw "Mock LiteLLM server exited early: $stderr"
+            }
+            for ($i = 0; $i -lt 20; $i++) {
+              try {
+                Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:18080/key/info?key=sk-test-virtual' -Headers @{ Authorization = 'Bearer sk-test-master' } -TimeoutSec 1 | Out-Null
+                break
+              } catch {
+                if ($i -eq 19) { throw }
+                Start-Sleep -Milliseconds 250
+              }
+            }
             $result = & ./scripts/windows/provision-codex-key.ps1 -Profile k2 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
 
             if ($result.Profile -ne 'k2') { throw "Expected k2 profile, got $($result.Profile)" }
-            if (@($result.Models).Count -ne 2) { throw 'Expected exactly two K2 models' }
+            if (@($result.Models).Count -ne 3) { throw 'Expected exactly three K2 models' }
 
             $envLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
             if ($envLines -notcontains 'EXISTING_VAR=keep') { throw 'Existing dotenv content was not preserved' }
@@ -147,7 +174,7 @@ jobs:
 
             $k3 = & ./scripts/windows/provision-codex-key.ps1 -Profile k3 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
             if ($k3.Profile -ne 'k3') { throw "Expected k3 profile, got $($k3.Profile)" }
-            if (@($k3.Models).Count -ne 6) { throw 'Expected exactly six K3 models' }
+            if (@($k3.Models).Count -ne 7) { throw 'Expected exactly seven K3 models' }
 
             $k3EnvLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
             if ($k3EnvLines -notcontains 'EXISTING_VAR=keep') { throw 'K3 provisioning lost existing dotenv content' }
@@ -156,6 +183,16 @@ jobs:
 
             $backupAfterK3 = @(Get-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup'))
             if (($backupAfterK3 -join [char]10) -ne ($backupLines -join [char]10)) { throw 'K3 provisioning modified the original backup' }
+
+            $runtime = & ./scripts/windows/provision-codex-key.ps1 -Profile runtime -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            if ($runtime.Profile -ne 'runtime') { throw "Expected runtime profile, got $($runtime.Profile)" }
+            if (@($runtime.Models).Count -ne 7) { throw 'Expected exactly seven runtime models' }
+
+            $revoked = & ./scripts/windows/revoke-codex-key.ps1 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            if (-not $revoked.Revoked) { throw 'Expected virtual key revocation to succeed' }
+            $afterRevoke = @(Get-Content -Path (Join-Path $codexHome '.env'))
+            if ($afterRevoke -notcontains 'EXISTING_VAR=keep') { throw 'Revocation lost unrelated dotenv content' }
+            if (($afterRevoke -join [char]10) -match 'LITELLM_API_KEY') { throw 'Revocation left the virtual key in Codex dotenv' }
           }
           finally {
             if ($null -ne $server -and -not $server.HasExited) {
@@ -173,7 +210,7 @@ jobs:
           $configPath = Join-Path $codexHome 'config.toml'
           @'
           model = "gpt-6.1-sol"
-          reasoning_effort = "medium"
+          model_reasoning_effort = "medium"
           model_provider = "openai"
 
           [features]
@@ -196,7 +233,7 @@ jobs:
           if ([regex]::Matches($configured, '(?m)^\[model_providers\.litellm_subscription\]\s*$').Count -ne 1) { throw 'LiteLLM provider table was duplicated' }
           if ($configured -notmatch 'model_provider = "litellm_subscription"') { throw 'LiteLLM provider was not activated' }
           if ($configured -notmatch 'model = "gpt-6\.1-sol"') { throw 'Existing model setting was lost' }
-          if ($configured -notmatch 'reasoning_effort = "medium"') { throw 'Existing reasoning effort was lost' }
+          if ($configured -notmatch 'model_reasoning_effort = "medium"') { throw 'Existing reasoning effort was lost' }
           if ($configured -notmatch '(?m)^\[features\]\s*$') { throw 'Existing TOML table was lost' }
           if ($configured -notmatch 'multi_agent = true') { throw 'Existing feature setting was lost' }
 
@@ -214,6 +251,51 @@ jobs:
           if ($envLines -notcontains 'EXISTING_VAR=keep') { throw 'Dotenv restore lost the original variable' }
           if (($envLines -join [char]10) -match 'LITELLM_API_KEY') { throw 'Dotenv restore retained the LiteLLM key' }
 
+      - name: Verify managed AGENTS policy is idempotent and surgically removable
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP 'codex-policy'
+          $codexHome = Join-Path $testRoot 'codex'
+          New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
+          'EXISTING POLICY LINE' | Set-Content -Path (Join-Path $codexHome 'AGENTS.md') -Encoding utf8NoBOM
+
+          & ./scripts/windows/configure-smart-router-policy.ps1 -CodexHome $codexHome | Out-Null
+          & ./scripts/windows/configure-smart-router-policy.ps1 -CodexHome $codexHome | Out-Null
+          $managed = Get-Content -Raw -Path (Join-Path $codexHome 'AGENTS.md')
+          if ([regex]::Matches($managed, 'CODEX-SMART-ROUTER:BEGIN').Count -ne 1) { throw 'Managed policy duplicated' }
+          if ($managed -notmatch 'EXISTING POLICY LINE') { throw 'Existing policy was lost' }
+          if ($managed -notmatch 'gpt-6\.1-terra') { throw 'Router policy was not installed' }
+
+          & ./scripts/windows/restore-smart-router-policy.ps1 -CodexHome $codexHome | Out-Null
+          $restored = Get-Content -Raw -Path (Join-Path $codexHome 'AGENTS.md')
+          if ($restored -notmatch 'EXISTING POLICY LINE') { throw 'Existing policy was not preserved' }
+          if ($restored -match 'CODEX-SMART-ROUTER:BEGIN') { throw 'Managed policy was not removed' }
+
+      - name: Verify rollback preserves post-install drift in conflict copies
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP 'codex-rollback-drift'
+          $codexHome = Join-Path $testRoot 'codex'
+          New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
+          $config = Join-Path $codexHome 'config.toml'
+          $envFile = Join-Path $codexHome '.env'
+          'model_provider = "openai"' | Set-Content -Path $config -Encoding utf8NoBOM
+          'EXISTING_VAR=keep' | Set-Content -Path $envFile -Encoding utf8NoBOM
+          Copy-Item $envFile (Join-Path $codexHome '.env.pre-litellm-backup')
+
+          & ./scripts/windows/configure-codex-provider.ps1 -CodexHome $codexHome | Out-Null
+          Add-Content -Path $config -Value '# POST_INSTALL_CONFIG_CHANGE'
+          'LITELLM_API_KEY=sk-test-virtual' | Add-Content -Path $envFile
+          $envHash = (Get-FileHash -Algorithm SHA256 -Path $envFile).Hash
+          Set-Content -Path (Join-Path $codexHome '.env.pre-litellm-applied.sha256') -Value $envHash -Encoding ascii
+          Add-Content -Path $envFile -Value 'POST_INSTALL_ENV_CHANGE=1'
+
+          $result = & ./scripts/windows/restore-codex-provider.ps1 -CodexHome $codexHome | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($result.ConfigConflictCopy) -or -not (Test-Path $result.ConfigConflictCopy)) { throw 'Config drift conflict copy missing' }
+          if ([string]::IsNullOrWhiteSpace($result.EnvConflictCopy) -or -not (Test-Path $result.EnvConflictCopy)) { throw 'Env drift conflict copy missing' }
+          if ((Get-Content -Raw $result.ConfigConflictCopy) -notmatch 'POST_INSTALL_CONFIG_CHANGE') { throw 'Config drift was not preserved' }
+          if ((Get-Content -Raw $result.EnvConflictCopy) -notmatch 'POST_INSTALL_ENV_CHANGE') { throw 'Env drift was not preserved' }
+
   upstream-contract:
     runs-on: ubuntu-latest
     steps:
@@ -226,10 +308,12 @@ jobs:
           BASE=https://raw.githubusercontent.com/BerriAI/litellm/$REF
           curl -fsSLo /tmp/pyproject.toml "$BASE/pyproject.toml"
           curl -fsSLo /tmp/presets.json "$BASE/litellm/proxy/public_endpoints/autorouter_presets.json"
+          curl -fsSLo /tmp/image-tests.py "$BASE/tests/unit/images/test_main.py"
           grep -F 'version = "1.109.0"' /tmp/pyproject.toml
           grep -F '"openai_family"' /tmp/presets.json
           grep -F '"gpt-6-luna"' /tmp/presets.json
           grep -F '"gpt-6-astra"' /tmp/presets.json
+          grep -F 'chatgpt/gpt-image-2' /tmp/image-tests.py
 
           CODEX_REF=67f0994b532b8740f14b5b738af7b7b2a915b1d6
           SUPERPOWERS_REF=2ce8aa15d05bd57213e6f746f953aafb7ded7a8b
