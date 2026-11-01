@@ -207,3 +207,27 @@ def test_heavy_smoke_executes_real_autorouter_dry_run():
     assert '/auto_router/test_routing' in (ROOT / 'tools/router_dry_run.py').read_text()
     assert 'python tools/router_dry_run.py' in text
     assert 'sk-ci-only-not-a-real-secret' in text
+
+def test_supply_chain_refs_are_immutable():
+    compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
+    assert compose['services']['db']['image'] == (
+        'postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74'
+    )
+    for workflow in ('.github/workflows/ci.yml', '.github/workflows/heavy-smoke.yml'):
+        text = (ROOT / workflow).read_text()
+        assert 'actions/checkout@v4' not in text
+        assert 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' in text
+    ci = (ROOT / '.github/workflows/ci.yml').read_text()
+    assert 'actions/setup-python@v5' not in ci
+    assert 'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065' in ci
+
+
+def test_upstream_lock_pins_codex_and_superpowers_evidence():
+    lock = json.loads((ROOT / 'upstream.lock.json').read_text())
+    assert lock['codex']['commit'] == '67f0994b532b8740f14b5b738af7b7b2a915b1d6'
+    assert lock['superpowers']['commit'] == '2ce8aa15d05bd57213e6f746f953aafb7ded7a8b'
+    ci = (ROOT / '.github/workflows/ci.yml').read_text()
+    assert 'model: Option<String>' in ci
+    assert 'reasoning_effort: Option<ReasoningEffort>' in ci
+    assert 'Always specify the model explicitly when dispatching a subagent.' in ci
+    assert 'Rounds 4-5' in ci

@@ -13,5 +13,23 @@
   "security_notes": [
     "Do not replace the full commit SHA with main/latest/main-stable.",
     "The blocked 1.107.0 PyPI/Docker artifacts were compromised on 2026-10-21."
-  ]
+  ],
+  "codex": {
+    "repository": "openai/codex",
+    "commit": "67f0994b532b8740f14b5b738af7b7b2a915b1d6",
+    "purpose": "Evidence snapshot for native subagent model + reasoning_effort support"
+  },
+  "superpowers": {
+    "repository": "obra/superpowers",
+    "commit": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+    "github_signature_verified": true,
+    "purpose": "Evidence snapshot for explicit model selection and rounds 4-5 fix-loop escalation"
+  },
+  "runtime_dependencies": {
+    "postgres_image": "postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74"
+  },
+  "github_actions": {
+    "checkout": "11d5960a326750d5838078e36cf38b85af677262",
+    "setup_python": "a26af69be951a213d495a4c3e4e4022e16d87065"
+  }
 }
