@@ -83,6 +83,8 @@ def main():
     args = parser.parse_args()
 
     result = collect(args.sessions_root)
+    if not any(row.get("model") for row in result["sessions"]):
+        raise SystemExit("No rollout model/effort evidence found under the supplied sessions root")
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {len(result['sessions'])} session records to {args.out}")
