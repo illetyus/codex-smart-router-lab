@@ -297,6 +297,8 @@ def test_heavy_smoke_proves_restricted_k2_virtual_key_contract():
     text = tool.read_text()
     assert '/key/generate' in text
     assert '/key/info' in text
+    assert '?key=' not in text
+    assert 'bearer=virtual_key' in text
     assert 'gpt-6.1-sol' in text
     assert 'codex-*' in text
     assert '/responses' not in text
