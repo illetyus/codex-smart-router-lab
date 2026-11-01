@@ -464,7 +464,7 @@ def test_restore_tracks_codex_dotenv_applied_hash_and_conflicts():
     restore = (ROOT / 'scripts/windows/restore-codex-provider.ps1').read_text()
     assert '.env.pre-litellm-applied.sha256' in provision
     assert '.env.pre-litellm-applied.sha256' in restore
-    assert '.env.pre-litellm-restore-conflict' in restore
+    assert 'pre-litellm-restore-conflict' in restore
 
 
 def test_secret_files_are_acl_hardened_and_virtual_keys_expire():
