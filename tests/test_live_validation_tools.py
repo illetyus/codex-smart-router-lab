@@ -82,3 +82,30 @@ def test_windows_evidence_wrapper_is_secret_safe():
     assert "supported-model-effort.json" in text
     assert "Authorization" not in text
     assert "LITELLM_API_KEY=" not in text
+
+
+def test_rollout_collector_tolerates_bom_unknown_and_malformed_lines(tmp_path):
+    root = tmp_path / "sessions"
+    root.mkdir()
+    path = root / "rollout.jsonl"
+    payload = (
+        "\ufeff" + json.dumps({"type":"session_meta","payload":{"id":"bom-session","parent_thread_id":None,"agent_role":"controller"}})
+        + "\nnot-json\n"
+        + json.dumps({"type":"future_event","payload":{"ignored":True}})
+        + "\n"
+        + json.dumps({"type":"turn_context","payload":{"model":"gpt-6-sol","effort":{"level":"high"}}})
+        + "\n"
+    )
+    path.write_text(payload, encoding="utf-8")
+
+    out = tmp_path / "evidence.json"
+    subprocess.run(
+        [sys.executable, str(ROOT / "tools/collect_rollout_evidence.py"), "--sessions-root", str(root), "--out", str(out)],
+        check=True,
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert len(data["sessions"]) == 1
+    row = data["sessions"][0]
+    assert row["session_id"] == "bom-session"
+    assert row["model"] == "gpt-6-sol"
+    assert row["effort"] == "high"
