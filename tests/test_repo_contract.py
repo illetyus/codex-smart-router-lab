@@ -231,3 +231,22 @@ def test_upstream_lock_pins_codex_and_superpowers_evidence():
     assert 'reasoning_effort: Option<ReasoningEffort>' in ci
     assert 'Always specify the model explicitly when dispatching a subagent.' in ci
     assert 'Rounds 4-5' in ci
+
+def test_autorouter_exposes_direct_known_models_for_explicit_superpowers_workers():
+    cfg = yaml.safe_load((ROOT / 'configs/litellm/autorouter.yaml').read_text())
+    routes = {
+        m['model_name']: m['litellm_params']['model']
+        for m in cfg['model_list']
+        if m['model_name'] in {'gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra'}
+    }
+    assert routes == {
+        'gpt-6-luna': 'chatgpt/gpt-6-luna',
+        'gpt-6.1-terra': 'chatgpt/gpt-6.1-terra',
+        'gpt-6-sol': 'chatgpt/gpt-6-sol',
+        'gpt-6-astra': 'chatgpt/gpt-6-astra',
+    }
+
+    # gpt-6.1-sol remains the controller-facing Auto Router, not a direct worker route.
+    sol61 = [m for m in cfg['model_list'] if m['model_name'] == 'gpt-6.1-sol']
+    assert len(sol61) == 1
+    assert sol61[0]['litellm_params']['model'] == 'auto_router/complexity_router'
