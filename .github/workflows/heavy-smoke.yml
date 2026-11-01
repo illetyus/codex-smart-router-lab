@@ -37,6 +37,18 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4000/health/liveliness
       - name: Prove restricted K2 virtual key
         run: python tools/k2_key_smoke.py --master-key sk-ci-only-not-a-real-secret
+      - name: Restart with router-free model probe config
+        shell: bash
+        run: |
+          CODEX_ROUTER_CONFIG=model-probe.yaml docker compose up -d --force-recreate litellm
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4000/health/liveliness >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs litellm
+          exit 1
       - name: Restart with Auto Router config
         shell: bash
         run: |
