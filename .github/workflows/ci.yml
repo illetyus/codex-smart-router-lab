@@ -130,14 +130,14 @@ jobs:
             if ($result.Profile -ne 'k2') { throw "Expected k2 profile, got $($result.Profile)" }
             if (@($result.Models).Count -ne 2) { throw 'Expected exactly two K2 models' }
 
-            $envText = Get-Content -Raw -Path (Join-Path $codexHome '.env')
-            if ($envText -notmatch '(?m)^EXISTING_VAR=keep$') { throw 'Existing dotenv content was not preserved' }
-            if ($envText -notmatch '(?m)^LITELLM_API_KEY=sk-test-virtual$') { throw 'Virtual key was not stored' }
-            if ($envText -match 'sk-test-master') { throw 'Master key leaked into Codex dotenv' }
+            $envLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
+            if ($envLines -notcontains 'EXISTING_VAR=keep') { throw 'Existing dotenv content was not preserved' }
+            if ($envLines -notcontains 'LITELLM_API_KEY=sk-test-virtual') { throw 'Virtual key was not stored' }
+            if (($envLines -join [char]10) -match 'sk-test-master') { throw 'Master key leaked into Codex dotenv' }
 
-            $backupText = Get-Content -Raw -Path (Join-Path $codexHome '.env.pre-litellm-backup')
-            if ($backupText -notmatch '(?m)^EXISTING_VAR=keep$') { throw 'Codex dotenv backup was not created correctly' }
-            if ($backupText -match 'LITELLM_API_KEY') { throw 'Backup unexpectedly contains a LiteLLM virtual key' }
+            $backupLines = @(Get-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup'))
+            if ($backupLines -notcontains 'EXISTING_VAR=keep') { throw 'Codex dotenv backup was not created correctly' }
+            if (($backupLines -join [char]10) -match 'LITELLM_API_KEY') { throw 'Backup unexpectedly contains a LiteLLM virtual key' }
           }
           finally {
             if ($null -ne $server -and -not $server.HasExited) {
