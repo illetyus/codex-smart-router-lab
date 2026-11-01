@@ -19,7 +19,13 @@ jobs:
       - run: pip install --disable-pip-version-check pytest pyyaml
       - run: pytest -q
       - run: python tools/validate_repo.py
-      - run: docker compose config --quiet
+      - name: Render compose with disposable CI values
+        shell: bash
+        run: |
+          LITELLM_MASTER_KEY=sk-ci-render-only \
+          LITELLM_SALT_KEY=sk-ci-render-salt-only \
+          POSTGRES_PASSWORD=ci-render-only \
+          docker compose config --quiet
 
   powershell-parse:
     runs-on: windows-latest

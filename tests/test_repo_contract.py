@@ -175,3 +175,11 @@ def test_validator_accepts_current_catalog_free_router_contract():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     assert module.validate() == []
+
+
+def test_ci_compose_render_supplies_disposable_required_env():
+    text = (ROOT / '.github/workflows/ci.yml').read_text()
+    assert 'LITELLM_MASTER_KEY=sk-ci-render-only' in text
+    assert 'LITELLM_SALT_KEY=sk-ci-render-salt-only' in text
+    assert 'POSTGRES_PASSWORD=ci-render-only' in text
+    assert 'docker compose config --quiet' in text
