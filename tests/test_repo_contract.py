@@ -498,3 +498,8 @@ def test_virtual_key_revocation_helper_is_present_and_secret_safe():
     assert 'Write-Host $virtualKey' not in text
     assert 'Write-Output $virtualKey' not in text
     assert 'Protect-SecretFile' in text
+
+
+def test_models_are_config_owned_not_db_mutable():
+    compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
+    assert compose['services']['litellm']['environment']['STORE_MODEL_IN_DB'] == 'False'
