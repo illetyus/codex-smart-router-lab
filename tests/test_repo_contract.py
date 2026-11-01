@@ -355,7 +355,9 @@ def test_windows_key_provisioner_is_phase_scoped_and_secret_safe():
     for model in ('gpt-6-luna', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-astra'):
         assert model in text
     assert '/key/generate' in text
-    assert '/key/info' in text
+    assert '/key/info' not in text
+    assert '?key=' not in text
+    assert '$created.models' in text
     assert 'Write-Host $virtualKey' not in text
     assert 'Write-Output $virtualKey' not in text
     assert 'LITELLM_API_KEY=' in text
