@@ -68,13 +68,15 @@
 **Interfaces:** Produces the account-verified route map used by Superpowers workers.
 - [ ] Verify the subscription can call `gpt-6-luna`, `gpt-6.1-terra`, `gpt-6.1-sol`, and `gpt-6-astra`.
 - [ ] Keep unsupported tiers disabled rather than silently falling back to paid API routes.
-- [x] Expose the router under the known `gpt-6.1-sol` slug; keep actual models behind internal aliases.
+- [x] Expose the router under the known `gpt-6.1-sol` slug; keep actual tier models behind internal aliases.
+- [x] Expose explicit known Codex model slugs for Luna/Terra/Sol/Astra Superpowers workers without a broad wildcard.
 - [ ] Verify short, normal, complex, and reasoning-heavy prompts route to expected tiers in LiteLLM logs.
 
 ### Task 6: Superpowers/subagents and escalation
 **Files:** docs/K5-ESCALATION.md and hook scripts (future)
 **Interfaces:** Produces deterministic fresh-worker escalation after verified failures.
 - [ ] Install Superpowers from official Codex marketplace.
-- [ ] Verify native subagent `model` and `reasoning_effort` appear in rollout metadata.
+- [x] Pin source contracts proving native subagent `model` + `reasoning_effort` support and Superpowers' explicit-model/fix-loop policy.
+- [ ] Verify effective subagent `model` and `reasoning_effort` appear in rollout metadata on the user's installed app.
 - [ ] Add failure summary hook without mid-trajectory model switching.
 - [ ] Exercise a deliberate failing-test scenario and prove escalation.
