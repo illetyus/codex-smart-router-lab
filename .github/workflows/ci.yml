@@ -84,11 +84,12 @@ jobs:
           @'
           import json
           from http.server import BaseHTTPRequestHandler, HTTPServer
+          from urllib.parse import parse_qs, urlsplit
 
           MASTER = "Bearer sk-test-master"
           VIRTUAL = "sk-test-virtual"
-          K2_MODELS = ["gpt-6.1-sol", "codex-*"]
-          K3_MODELS = ["gpt-6.1-sol", "gpt-6-luna", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-astra", "codex-*"]
+          K2_MODELS = ["gpt-6.1-sol", "gpt-image-2", "codex-*"]
+          K3_MODELS = ["gpt-6.1-sol", "gpt-6-luna", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-astra", "gpt-image-2", "codex-*"]
           current_models = K2_MODELS
 
           class Handler(BaseHTTPRequestHandler):
@@ -119,10 +120,13 @@ jobs:
                   self.send_json(200, {"key": VIRTUAL})
 
               def do_GET(self):
-                  if self.path != "/key/info":
+                  parsed = urlsplit(self.path)
+                  if parsed.path != "/key/info":
                       return self.send_json(404, {"error": "not found"})
-                  if self.headers.get("Authorization") != f"Bearer {VIRTUAL}":
-                      return self.send_json(401, {"error": "bad virtual key"})
+                  if self.headers.get("Authorization") != MASTER:
+                      return self.send_json(401, {"error": "bad master key"})
+                  if parse_qs(parsed.query).get("key") != [VIRTUAL]:
+                      return self.send_json(400, {"error": "missing key query"})
                   self.send_json(200, {"info": {"models": current_models}})
 
           HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
@@ -134,7 +138,7 @@ jobs:
             $result = & ./scripts/windows/provision-codex-key.ps1 -Profile k2 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
 
             if ($result.Profile -ne 'k2') { throw "Expected k2 profile, got $($result.Profile)" }
-            if (@($result.Models).Count -ne 2) { throw 'Expected exactly two K2 models' }
+            if (@($result.Models).Count -ne 3) { throw 'Expected exactly three K2 models' }
 
             $envLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
             if ($envLines -notcontains 'EXISTING_VAR=keep') { throw 'Existing dotenv content was not preserved' }
@@ -147,7 +151,7 @@ jobs:
 
             $k3 = & ./scripts/windows/provision-codex-key.ps1 -Profile k3 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
             if ($k3.Profile -ne 'k3') { throw "Expected k3 profile, got $($k3.Profile)" }
-            if (@($k3.Models).Count -ne 6) { throw 'Expected exactly six K3 models' }
+            if (@($k3.Models).Count -ne 7) { throw 'Expected exactly seven K3 models' }
 
             $k3EnvLines = @(Get-Content -Path (Join-Path $codexHome '.env'))
             if ($k3EnvLines -notcontains 'EXISTING_VAR=keep') { throw 'K3 provisioning lost existing dotenv content' }
@@ -173,7 +177,7 @@ jobs:
           $configPath = Join-Path $codexHome 'config.toml'
           @'
           model = "gpt-6.1-sol"
-          reasoning_effort = "medium"
+          model_reasoning_effort = "medium"
           model_provider = "openai"
 
           [features]
@@ -196,7 +200,7 @@ jobs:
           if ([regex]::Matches($configured, '(?m)^\[model_providers\.litellm_subscription\]\s*$').Count -ne 1) { throw 'LiteLLM provider table was duplicated' }
           if ($configured -notmatch 'model_provider = "litellm_subscription"') { throw 'LiteLLM provider was not activated' }
           if ($configured -notmatch 'model = "gpt-6\.1-sol"') { throw 'Existing model setting was lost' }
-          if ($configured -notmatch 'reasoning_effort = "medium"') { throw 'Existing reasoning effort was lost' }
+          if ($configured -notmatch 'model_reasoning_effort = "medium"') { throw 'Existing reasoning effort was lost' }
           if ($configured -notmatch '(?m)^\[features\]\s*$') { throw 'Existing TOML table was lost' }
           if ($configured -notmatch 'multi_agent = true') { throw 'Existing feature setting was lost' }
 
