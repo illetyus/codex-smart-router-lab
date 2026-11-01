@@ -106,12 +106,16 @@ jobs:
 
               def do_POST(self):
                   global current_models
-                  if self.path != "/key/generate":
-                      return self.send_json(404, {"error": "not found"})
                   if self.headers.get("Authorization") != MASTER:
                       return self.send_json(401, {"error": "bad master key"})
                   length = int(self.headers.get("Content-Length", "0"))
                   payload = json.loads(self.rfile.read(length) or b"{}")
+                  if self.path == "/key/delete":
+                      if payload.get("keys") != [VIRTUAL]:
+                          return self.send_json(400, {"error": "unexpected revoke key"})
+                      return self.send_json(200, {"deleted_keys": [VIRTUAL]})
+                  if self.path != "/key/generate":
+                      return self.send_json(404, {"error": "not found"})
                   requested = payload.get("models", [])
                   allowed = {tuple(sorted(K2_MODELS)), tuple(sorted(K3_MODELS))}
                   if tuple(sorted(requested)) not in allowed:
@@ -166,6 +170,12 @@ jobs:
             $runtime = & ./scripts/windows/provision-codex-key.ps1 -Profile runtime -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
             if ($runtime.Profile -ne 'runtime') { throw "Expected runtime profile, got $($runtime.Profile)" }
             if (@($runtime.Models).Count -ne 7) { throw 'Expected exactly seven runtime models' }
+
+            $revoked = & ./scripts/windows/revoke-codex-key.ps1 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            if (-not $revoked.Revoked) { throw 'Expected virtual key revocation to succeed' }
+            $afterRevoke = @(Get-Content -Path (Join-Path $codexHome '.env'))
+            if ($afterRevoke -notcontains 'EXISTING_VAR=keep') { throw 'Revocation lost unrelated dotenv content' }
+            if (($afterRevoke -join [char]10) -match 'LITELLM_API_KEY') { throw 'Revocation left the virtual key in Codex dotenv' }
           }
           finally {
             if ($null -ne $server -and -not $server.HasExited) {
