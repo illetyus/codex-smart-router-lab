@@ -197,7 +197,7 @@ jobs:
           if ($configured -notmatch 'model_provider = "litellm_subscription"') { throw 'LiteLLM provider was not activated' }
           if ($configured -notmatch 'model = "gpt-6\.1-sol"') { throw 'Existing model setting was lost' }
           if ($configured -notmatch 'reasoning_effort = "medium"') { throw 'Existing reasoning effort was lost' }
-          if ($configured -notmatch '(?m)^\[features\]$') { throw 'Existing TOML table was lost' }
+          if ($configured -notmatch '(?m)^\[features\]\s*$') { throw 'Existing TOML table was lost' }
           if ($configured -notmatch 'multi_agent = true') { throw 'Existing feature setting was lost' }
 
           $backupPath = Join-Path $codexHome 'config.toml.pre-litellm-backup'
