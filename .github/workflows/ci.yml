@@ -45,6 +45,31 @@ jobs:
             }
           }
           if ($failed) { exit 1 }
+      - name: Verify Codex rollout inspector behavior
+        shell: pwsh
+        run: |
+          $sessions = Join-Path $env:RUNNER_TEMP 'codex-sessions'
+          New-Item -ItemType Directory -Force -Path $sessions | Out-Null
+
+          $real = Join-Path $sessions 'rollout-real.jsonl'
+          @'
+          {"timestamp":"2026-11-01T00:00:00Z","type":"session_meta","payload":{"parent_thread_id":"parent-1","agent_role":"worker","source":"vscode"}}
+          {"timestamp":"2026-11-01T00:00:01Z","type":"turn_context","payload":{"model":"gpt-6-luna","effort":"high"}}
+          '@ | Set-Content -Path $real -Encoding utf8
+          (Get-Item $real).LastWriteTime = [datetime]'2026-11-01T00:00:00Z'
+
+          $review = Join-Path $sessions 'rollout-review.jsonl'
+          @'
+          {"timestamp":"2026-11-01T00:01:00Z","type":"session_meta","payload":{"source":"vscode"}}
+          {"timestamp":"2026-11-01T00:01:01Z","type":"turn_context","payload":{"model":"codex-auto-review","effort":"medium"}}
+          '@ | Set-Content -Path $review -Encoding utf8
+          (Get-Item $review).LastWriteTime = [datetime]'2026-11-01T00:01:00Z'
+
+          $result = & ./scripts/windows/inspect-session.ps1 -SessionsRoot $sessions | ConvertFrom-Json
+          if ($result.Model -ne 'gpt-6-luna') { throw "Expected gpt-6-luna, got $($result.Model)" }
+          if ($result.Effort -ne 'high') { throw "Expected high, got $($result.Effort)" }
+          if ($result.Parent -ne 'parent-1') { throw "Expected parent-1, got $($result.Parent)" }
+          if ($result.AgentRole -ne 'worker') { throw "Expected worker, got $($result.AgentRole)" }
 
   upstream-contract:
     runs-on: ubuntu-latest
