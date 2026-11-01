@@ -461,3 +461,21 @@ def test_restore_tracks_codex_dotenv_applied_hash_and_conflicts():
     assert '.env.pre-litellm-applied.sha256' in provision
     assert '.env.pre-litellm-applied.sha256' in restore
     assert '.env.pre-litellm-restore-conflict' in restore
+
+
+def test_secret_files_are_acl_hardened_and_virtual_keys_expire():
+    install = (ROOT / 'scripts/windows/install.ps1').read_text()
+    provision = (ROOT / 'scripts/windows/provision-codex-key.ps1').read_text()
+    assert 'Protect-SecretFile' in install
+    assert 'Protect-SecretFile' in provision
+    assert 'SetAccessRuleProtection' in install
+    assert 'SetAccessRuleProtection' in provision
+    assert "[string]$Duration = '30d'" in provision
+    assert 'duration = $Duration' in provision
+
+
+def test_installer_rejects_placeholder_or_weak_existing_env():
+    text = (ROOT / 'scripts/windows/install.ps1').read_text()
+    assert 'CHANGE_ME' in text
+    assert 'OPENAI_API_KEY' in text
+    assert 'existing .env failed validation' in text
