@@ -331,3 +331,4 @@ def test_k3_model_probe_mode_exists_before_autorouter():
     heavy = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
     assert 'Restart with router-free model probe config' in heavy
     assert 'CODEX_ROUTER_CONFIG=model-probe.yaml' in heavy
+    assert (ROOT / 'docs/K3-MODEL-PROBE.md').exists()
