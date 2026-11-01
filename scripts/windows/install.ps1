@@ -1,7 +1,8 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [ValidateSet('subscription','model-probe','autorouter')]
-    [string]$Mode = 'subscription'
+    [string]$Mode = 'subscription',
+    [string]$CodexHome = (Join-Path $env:USERPROFILE '.codex')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -9,7 +10,7 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $EnvFile = Join-Path $RepoRoot '.env'
 $ComposeFile = Join-Path $RepoRoot 'docker-compose.yml'
 
-& (Join-Path $PSScriptRoot 'preflight.ps1')
+& (Join-Path $PSScriptRoot 'preflight.ps1') -CodexHome $CodexHome
 if ($LASTEXITCODE -ne 0) { throw 'Preflight failed.' }
 
 function New-RandomHex([int]$Bytes = 32) {
@@ -34,9 +35,28 @@ $config = switch ($Mode) {
 $env:CODEX_ROUTER_CONFIG = $config
 
 if ($PSCmdlet.ShouldProcess('local Docker stack', "build and start LiteLLM in $Mode mode")) {
-    docker compose -f $ComposeFile up -d --build
-    if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed.' }
+    docker compose -f $ComposeFile up -d --build --wait --wait-timeout 300
+    if ($LASTEXITCODE -ne 0) { throw 'docker compose up did not reach healthy state.' }
 }
 
-Write-Host "Gateway requested in '$Mode' mode."
-Write-Host 'Next: create a LiteLLM virtual key, store it as LITELLM_API_KEY in %USERPROFILE%\.codex\.env, then merge configs/codex/provider.subscription.toml into Codex config.toml.'
+Write-Host "Gateway is healthy in '$Mode' mode."
+
+switch ($Mode) {
+    'subscription' {
+        Write-Host 'Next commands:'
+        Write-Host '  pwsh -File .\scripts\windows\provision-codex-key.ps1 -Profile k2'
+        Write-Host '  pwsh -File .\scripts\windows\configure-codex-provider.ps1'
+        Write-Host '  pwsh -File .\scripts\windows\verify.ps1'
+    }
+    'model-probe' {
+        Write-Host 'Next commands:'
+        Write-Host '  pwsh -File .\scripts\windows\provision-codex-key.ps1 -Profile k3'
+        Write-Host '  pwsh -File .\scripts\windows\verify.ps1'
+        Write-Host 'Then follow docs/K3-MODEL-PROBE.md for direct model probes.'
+    }
+    'autorouter' {
+        Write-Host 'Next command:'
+        Write-Host '  pwsh -File .\scripts\windows\verify.ps1'
+        Write-Host 'Then follow docs/K4-ROUTING.md for routing evidence.'
+    }
+}
