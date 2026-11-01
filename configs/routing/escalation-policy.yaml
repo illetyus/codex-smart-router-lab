@@ -1,0 +1,32 @@
+version: 1
+
+worker_tiers:
+  mechanical:
+    model: gpt-6-luna
+    reasoning_effort: medium
+  integration:
+    model: gpt-6.1-terra
+    reasoning_effort: medium
+  difficult:
+    model: gpt-6-sol
+    reasoning_effort: high
+  critical:
+    model: gpt-6-astra
+    reasoning_effort: xhigh
+
+fix_loop:
+  rounds_1_3:
+    action: retry_same_worker
+  rounds_4_5:
+    action: fresh_worker_promote_one_tier
+  after_round_5:
+    action: breaker_controller_review
+
+handoff:
+  preserve:
+    - repository_state
+    - diff
+    - failing_tests
+    - concise_failure_summary
+  discard:
+    - verbose_failed_reasoning_trajectory

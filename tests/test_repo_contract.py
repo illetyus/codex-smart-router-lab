@@ -14,7 +14,7 @@ def test_required_files_exist():
         'configs/codex/provider.subscription.toml',
         'scripts/windows/preflight.ps1', 'scripts/windows/install.ps1',
         'scripts/windows/verify.ps1', 'scripts/windows/uninstall.ps1',
-        '.github/workflows/ci.yml', 'tools/validate_repo.py', 'docs/K2-WINDOWS.md', 'docs/K4-ROUTING.md',
+        '.github/workflows/ci.yml', 'tools/validate_repo.py', 'docs/K2-WINDOWS.md', 'docs/K4-ROUTING.md', 'docs/K5-ESCALATION.md',
     ]
     missing = [p for p in required if not (ROOT / p).exists()]
     assert not missing, f'missing: {missing}'
@@ -258,3 +258,24 @@ def test_k4_runbook_keeps_internal_aliases_private():
     assert 'Do not grant `*-upstream`' in text
     assert 'spawn_agent' in text
     assert 'reasoning_effort' in text
+
+def test_escalation_policy_matches_superpowers_fix_loop():
+    cfg = yaml.safe_load((ROOT / 'configs/routing/escalation-policy.yaml').read_text())
+    assert cfg['worker_tiers'] == {
+        'mechanical': {'model': 'gpt-6-luna', 'reasoning_effort': 'medium'},
+        'integration': {'model': 'gpt-6.1-terra', 'reasoning_effort': 'medium'},
+        'difficult': {'model': 'gpt-6-sol', 'reasoning_effort': 'high'},
+        'critical': {'model': 'gpt-6-astra', 'reasoning_effort': 'xhigh'},
+    }
+    assert cfg['fix_loop']['rounds_1_3']['action'] == 'retry_same_worker'
+    assert cfg['fix_loop']['rounds_4_5']['action'] == 'fresh_worker_promote_one_tier'
+    assert cfg['fix_loop']['after_round_5']['action'] == 'breaker_controller_review'
+    assert 'verbose_failed_reasoning_trajectory' in cfg['handoff']['discard']
+
+
+def test_k5_does_not_claim_generic_posttooluse_failure_detection():
+    text = (ROOT / 'docs/K5-ESCALATION.md').read_text()
+    assert 'does **not** provide a stable top-level' in text
+    assert 'issue #34289' in text
+    assert 'fresh' in text
+    assert 'rounds 4–5' in text
