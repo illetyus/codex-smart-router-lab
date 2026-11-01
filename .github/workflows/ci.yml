@@ -138,9 +138,26 @@ jobs:
           HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
           '@ | Set-Content -Path $serverPath -Encoding utf8
 
-          $server = Start-Process python -ArgumentList $serverPath -PassThru
+          python -m py_compile $serverPath
+          if ($LASTEXITCODE -ne 0) { throw 'Mock LiteLLM server failed Python syntax validation' }
+          $serverOut = Join-Path $testRoot 'mock.stdout.log'
+          $serverErr = Join-Path $testRoot 'mock.stderr.log'
+          $server = Start-Process python -ArgumentList @('-u', $serverPath) -RedirectStandardOutput $serverOut -RedirectStandardError $serverErr -PassThru
           try {
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 1
+            if ($server.HasExited) {
+              $stderr = if (Test-Path $serverErr) { Get-Content -Raw $serverErr } else { '' }
+              throw "Mock LiteLLM server exited early: $stderr"
+            }
+            for ($i = 0; $i -lt 20; $i++) {
+              try {
+                Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:18080/key/info?key=sk-test-virtual' -Headers @{ Authorization = 'Bearer sk-test-master' } -TimeoutSec 1 | Out-Null
+                break
+              } catch {
+                if ($i -eq 19) { throw }
+                Start-Sleep -Milliseconds 250
+              }
+            }
             $result = & ./scripts/windows/provision-codex-key.ps1 -Profile k2 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
 
             if ($result.Profile -ne 'k2') { throw "Expected k2 profile, got $($result.Profile)" }
