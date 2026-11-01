@@ -104,6 +104,8 @@ if (-not $found) {
 
 if ($PSCmdlet.ShouldProcess($codexEnv, "store restricted LiteLLM $Profile virtual key")) {
     $updated | Set-Content -LiteralPath $codexEnv -Encoding utf8NoBOM
+    $appliedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $codexEnv).Hash
+    Set-Content -LiteralPath (Join-Path $CodexHome '.env.pre-litellm-applied.sha256') -Value $appliedHash -Encoding ascii
 }
 
 [PSCustomObject]@{
