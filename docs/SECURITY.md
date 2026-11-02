@@ -26,7 +26,7 @@ LiteLLM documents `[]` for direct clients so the TCP peer address is used and ca
 
 The project does not use LiteLLM's browser administration surface. Compose therefore sets `DISABLE_ADMIN_UI=True`. Swagger/ReDoc/OpenAPI discovery is also unnecessary for the Codex gateway, so `NO_DOCS=True`, `NO_REDOC=True`, and `NO_OPENAPI=True` are set. Inference, health, and authenticated management APIs remain available.
 
-For the pinned LiteLLM source `4bdeb137...`, FastAPI first normalizes `/ui` to `/ui/` with HTTP 307 and the disabled-UI handler then returns HTTP 200 containing the explicit `Admin UI is Disabled` page. Heavy Smoke verifies that exact pinned behavior by content. Do not replace this with a bare `404` assertion unless the LiteLLM pin is upgraded and the new exact-version behavior is revalidated.
+For the pinned LiteLLM source `4bdeb137...`, `/ui` static assets remain mounted even when `DISABLE_ADMIN_UI=True`; `/ui` therefore normalizes to `/ui/` and may return HTTP 200. That static response is not the authorization boundary. Heavy Smoke instead verifies the server-side discovery flag `admin_ui_disabled=true` at `/.well-known/litellm-ui-config` and verifies that `/sso/key/generate` returns the explicit `Admin UI is Disabled` page before authentication. If the LiteLLM pin changes, revalidate these exact-version semantics.
 
 ## Secret lifetime and Windows ACLs
 
