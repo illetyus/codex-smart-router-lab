@@ -503,3 +503,37 @@ def test_virtual_key_revocation_helper_is_present_and_secret_safe():
 def test_models_are_config_owned_not_db_mutable():
     compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
     assert compose['services']['litellm']['environment']['STORE_MODEL_IN_DB'] == 'False'
+
+
+def test_litellm_configs_harden_direct_client_trust_and_key_lifetime():
+    for name in ('subscription.yaml', 'model-probe.yaml', 'autorouter.yaml'):
+        cfg = yaml.safe_load((ROOT / 'configs/litellm' / name).read_text())
+        assert cfg['general_settings']['trusted_proxy_ranges'] == []
+        assert cfg['litellm_settings']['upperbound_key_generate_params']['duration'] == '30d'
+
+
+def test_compose_disables_unused_admin_and_api_documentation_surfaces():
+    compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
+    env = compose['services']['litellm']['environment']
+    assert env['DISABLE_ADMIN_UI'] == 'True'
+    assert env['NO_DOCS'] == 'True'
+    assert env['NO_REDOC'] == 'True'
+    assert env['NO_OPENAPI'] == 'True'
+
+
+def test_security_docs_record_hardening_and_litellm_release_maturity():
+    security = (ROOT / 'docs/SECURITY.md').read_text()
+    evidence = (ROOT / 'docs/EVIDENCE.md').read_text()
+    assert 'trusted_proxy_ranges' in security
+    assert 'DISABLE_ADMIN_UI' in security
+    assert 'NO_OPENAPI' in security
+    assert 'upperbound_key_generate_params' in security
+    assert 'v1.109.0-dev.2' in evidence
+    assert 'stable `v1.109.0`' in evidence
+
+
+def test_status_no_longer_claims_final_heavy_smoke_is_pending():
+    status = (ROOT / 'docs/STATUS.md').read_text()
+    assert '41326907185' in status
+    assert '385ee15faf7b32bfa32b488952af40871128cb78' in status
+    assert 'Final heavy Docker smoke on the current hardened main' not in status
