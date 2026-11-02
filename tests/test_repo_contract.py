@@ -542,10 +542,11 @@ def test_status_no_longer_claims_final_heavy_smoke_is_pending():
 def test_heavy_smoke_proves_management_surface_hardening_and_key_cap():
     workflow = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
     assert 'Verify hardened management surfaces' in workflow
-    assert '/ui' in workflow
-    # Pinned LiteLLM 4bdeb137 serves a deliberate disabled-UI page with HTTP 200
-    # after FastAPI normalizes /ui -> /ui/. Verify the marker, not a 404 contract
-    # from newer LiteLLM/operator docs.
+    # Pinned LiteLLM still serves static /ui assets when the Admin UI is disabled.
+    # Prove the server-side disable flag and a protected UI auth endpoint instead.
+    assert '/.well-known/litellm-ui-config' in workflow
+    assert 'admin_ui_disabled' in workflow
+    assert '/sso/key/generate' in workflow
     assert 'Admin UI is Disabled' in workflow
     assert '/openapi.json' in workflow
     assert '/redoc' in workflow
