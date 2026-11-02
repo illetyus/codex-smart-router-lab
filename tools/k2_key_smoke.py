@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -51,6 +52,24 @@ def verify_key_models(base_url: str, master_key: str, virtual_key: str) -> None:
         raise ValueError(f"unexpected model allowlist: {sorted(actual)!r}")
 
 
+def verify_duration_cap(base_url: str, master_key: str) -> None:
+    try:
+        request_json(
+            f"{base_url.rstrip('/')}/key/generate",
+            bearer=master_key,
+            payload={
+                "key_alias": "codex-overlong-ci",
+                "duration": "31d",
+                "models": sorted(EXPECTED_MODELS),
+            },
+        )
+    except HTTPError as exc:
+        if 400 <= exc.code < 500:
+            return
+        raise ValueError(f"virtual-key duration cap returned unexpected HTTP {exc.code}") from exc
+    raise ValueError("virtual-key duration cap accepted 31d despite a 30d server-side upper bound")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:4000")
@@ -59,6 +78,7 @@ def main() -> int:
 
     virtual_key = generate_key(args.base_url, args.master_key)
     verify_key_models(args.base_url, args.master_key, virtual_key)
+    verify_duration_cap(args.base_url, args.master_key)
     print(json.dumps({"key_alias": "codex-k2-ci", "models": sorted(EXPECTED_MODELS)}))
     return 0
 

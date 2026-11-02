@@ -537,3 +537,15 @@ def test_status_no_longer_claims_final_heavy_smoke_is_pending():
     assert '41326907185' in status
     assert '385ee15faf7b32bfa32b488952af40871128cb78' in status
     assert 'Final heavy Docker smoke on the current hardened main' not in status
+
+
+def test_heavy_smoke_proves_management_surface_hardening_and_key_cap():
+    workflow = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
+    assert 'Verify hardened management surfaces' in workflow
+    assert '/ui' in workflow
+    assert '/openapi.json' in workflow
+    assert '/redoc' in workflow
+    tool = (ROOT / 'tools/k2_key_smoke.py').read_text()
+    assert '31d' in tool
+    assert 'HTTPError' in tool
+    assert 'virtual-key duration cap' in tool
