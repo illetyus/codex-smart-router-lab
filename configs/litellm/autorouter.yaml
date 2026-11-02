@@ -108,3 +108,10 @@ model_list:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  # Direct localhost clients: trust the TCP peer and ignore spoofed X-Forwarded-For.
+  trusted_proxy_ranges: []
+
+litellm_settings:
+  # Server-side hard cap; client scripts also default to 30d.
+  upperbound_key_generate_params:
+    duration: 30d

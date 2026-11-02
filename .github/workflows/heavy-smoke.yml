@@ -39,7 +39,13 @@ jobs:
         run: |
           curl --fail --silent --show-error http://127.0.0.1:4000/health/liveliness
           curl --fail --silent --show-error http://127.0.0.1:4000/health/readiness
-      - name: Prove restricted K2 virtual key
+      - name: Verify hardened management surfaces
+        shell: bash
+        run: |
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4000/ui)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4000/openapi.json)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4000/redoc)" = "404"
+      - name: Prove restricted K2 virtual key and duration cap
         run: python tools/k2_key_smoke.py --master-key sk-ci-only-not-a-real-secret
       - name: Restart with router-free model probe config
         shell: bash

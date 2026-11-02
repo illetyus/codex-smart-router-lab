@@ -21,6 +21,28 @@ def validate() -> list[str]:
     if litellm["build"].get("context") != expected_context:
         errors.append("LiteLLM source context is not pinned to the reviewed full SHA")
 
+    expected_hardening_env = {
+        "DISABLE_ADMIN_UI": "True",
+        "NO_DOCS": "True",
+        "NO_REDOC": "True",
+        "NO_OPENAPI": "True",
+    }
+    for key, value in expected_hardening_env.items():
+        if litellm.get("environment", {}).get(key) != value:
+            errors.append(f"LiteLLM hardening env {key} must remain {value}")
+
+    for config_name in ("subscription.yaml", "model-probe.yaml", "autorouter.yaml"):
+        cfg = yaml.safe_load((ROOT / "configs/litellm" / config_name).read_text())
+        if cfg.get("general_settings", {}).get("trusted_proxy_ranges") != []:
+            errors.append(f"{config_name} must set trusted_proxy_ranges to [] for direct localhost clients")
+        duration_cap = (
+            cfg.get("litellm_settings", {})
+            .get("upperbound_key_generate_params", {})
+            .get("duration")
+        )
+        if duration_cap != "30d":
+            errors.append(f"{config_name} must enforce a 30d virtual-key duration upper bound")
+
     sub = yaml.safe_load((ROOT / "configs/litellm/subscription.yaml").read_text())
     sub_text = json.dumps(sub)
     if "openai/" in sub_text or "OPENAI_API_KEY" in sub_text:
