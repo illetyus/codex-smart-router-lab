@@ -42,11 +42,16 @@ jobs:
       - name: Verify hardened management surfaces
         shell: bash
         run: |
-          # FastAPI may redirect /ui -> /ui/ before applying DISABLE_ADMIN_UI.
-          # Follow redirects and verify the final response is not an accessible UI.
-          ui_status="$(curl --location --max-redirs 5 --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4000/ui)"
+          # Pinned LiteLLM 4bdeb137 normalizes /ui -> /ui/ with 307, then
+          # DISABLE_ADMIN_UI=True serves a deliberate HTTP 200 disabled page.
+          # Verify the pinned behavior by content rather than importing a newer
+          # LiteLLM/operator contract that expects 404.
+          ui_body="$(mktemp)"
+          trap 'rm -f "$ui_body"' EXIT
+          ui_status="$(curl --location --max-redirs 5 --fail --silent --show-error --output "$ui_body" --write-out '%{http_code}' http://127.0.0.1:4000/ui)"
           echo "Final /ui status: $ui_status"
-          test "$ui_status" = "404"
+          test "$ui_status" = "200"
+          grep -Fq 'Admin UI is Disabled' "$ui_body"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4000/openapi.json)" = "404"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4000/redoc)" = "404"
       - name: Prove restricted K2 virtual key and duration cap

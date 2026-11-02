@@ -543,6 +543,10 @@ def test_heavy_smoke_proves_management_surface_hardening_and_key_cap():
     workflow = (ROOT / '.github/workflows/heavy-smoke.yml').read_text()
     assert 'Verify hardened management surfaces' in workflow
     assert '/ui' in workflow
+    # Pinned LiteLLM 4bdeb137 serves a deliberate disabled-UI page with HTTP 200
+    # after FastAPI normalizes /ui -> /ui/. Verify the marker, not a 404 contract
+    # from newer LiteLLM/operator docs.
+    assert 'Admin UI is Disabled' in workflow
     assert '/openapi.json' in workflow
     assert '/redoc' in workflow
     tool = (ROOT / 'tools/k2_key_smoke.py').read_text()
