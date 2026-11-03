@@ -1,0 +1,139 @@
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [string]$HostName = '127.0.0.1',
+    [int]$Port = 5432,
+    [string]$AdminUser = 'postgres',
+    [SecureString]$AdminPassword,
+    [string]$DatabaseName = 'litellm',
+    [string]$RoleName = 'litellm',
+    [string]$RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'CodexSmartRouter')
+)
+
+$ErrorActionPreference = 'Stop'
+
+function New-RandomHex([int]$Bytes = 24) {
+    $buffer = New-Object byte[] $Bytes
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($buffer)
+    return -join ($buffer | ForEach-Object { $_.ToString('x2') })
+}
+
+function Protect-SecretFile([string]$Path) {
+    $acl = Get-Acl -LiteralPath $Path
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($rule in @($acl.Access)) {
+        [void]$acl.RemoveAccessRuleAll($rule)
+    }
+    $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+        $sid,
+        [System.Security.AccessControl.FileSystemRights]::FullControl,
+        [System.Security.AccessControl.AccessControlType]::Allow
+    )
+    [void]$acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $Path -AclObject $acl
+}
+
+function Set-DotEnvValue([string]$Path, [string]$Name, [string]$Value) {
+    $lines = @()
+    if (Test-Path -LiteralPath $Path) {
+        $lines = @(Get-Content -LiteralPath $Path)
+    }
+
+    $replacement = "$Name=$Value"
+    $found = $false
+    $updated = foreach ($line in $lines) {
+        if ($line -match ("^\s*{0}\s*=" -f [regex]::Escape($Name))) {
+            if (-not $found) {
+                $replacement
+                $found = $true
+            }
+        }
+        else {
+            $line
+        }
+    }
+    if (-not $found) {
+        $updated = @($updated) + $replacement
+    }
+    $updated | Set-Content -LiteralPath $Path -Encoding utf8NoBOM
+}
+
+if ($HostName -notin @('127.0.0.1','localhost','::1')) {
+    throw 'This lab provisions only a local PostgreSQL instance.'
+}
+
+foreach ($identifier in @($DatabaseName, $RoleName, $AdminUser)) {
+    if ($identifier -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        throw "Unsafe PostgreSQL identifier: $identifier"
+    }
+}
+
+$psql = Get-Command psql -ErrorAction SilentlyContinue
+$createdb = Get-Command createdb -ErrorAction SilentlyContinue
+if ($null -eq $psql -or $null -eq $createdb) {
+    throw 'psql/createdb were not found. Install PostgreSQL 16 command-line tools first.'
+}
+
+if ($null -eq $AdminPassword) {
+    $AdminPassword = Read-Host "Password for PostgreSQL administrator '$AdminUser'" -AsSecureString
+}
+
+$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdminPassword)
+$adminPlain = $null
+try {
+    $adminPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    $env:PGPASSWORD = $adminPlain
+
+    & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -tAc 'SELECT 1;' *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'PostgreSQL administrator authentication failed.'
+    }
+
+    $dbPassword = New-RandomHex
+    $roleExists = (& $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$RoleName';").Trim()
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect PostgreSQL roles.' }
+
+    if ($roleExists -eq '1') {
+        & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "ALTER ROLE $RoleName WITH LOGIN PASSWORD '$dbPassword';" *> $null
+    }
+    else {
+        & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE $RoleName WITH LOGIN PASSWORD '$dbPassword';" *> $null
+    }
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to create/update the LiteLLM PostgreSQL role.' }
+
+    $dbExists = (& $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$DatabaseName';").Trim()
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect PostgreSQL databases.' }
+
+    if ($dbExists -ne '1') {
+        & $createdb.Source -h $HostName -p $Port -U $AdminUser -O $RoleName $DatabaseName
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to create the LiteLLM PostgreSQL database.' }
+    }
+    else {
+        & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE $DatabaseName OWNER TO $RoleName;" *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to set the LiteLLM database owner.' }
+    }
+
+    New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
+    $envFile = Join-Path $RuntimeRoot 'router.env'
+    $databaseUrl = "postgresql://${RoleName}:${dbPassword}@${HostName}:$Port/$DatabaseName"
+
+    if ($PSCmdlet.ShouldProcess($envFile, 'store local DATABASE_URL for the native router')) {
+        Set-DotEnvValue -Path $envFile -Name 'DATABASE_URL' -Value $databaseUrl
+        Protect-SecretFile -Path $envFile
+    }
+
+    [PSCustomObject]@{
+        Database = $DatabaseName
+        Role = $RoleName
+        Host = $HostName
+        Port = $Port
+        EnvFile = $envFile
+    } | ConvertTo-Json -Compress
+}
+finally {
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    if ($bstr -ne [IntPtr]::Zero) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+    $adminPlain = $null
+}
