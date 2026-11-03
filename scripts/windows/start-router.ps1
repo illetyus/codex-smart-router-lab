@@ -15,6 +15,15 @@ $EnvFile = Join-Path $RuntimeRoot 'router.env'
 $ConfigDir = Join-Path $RuntimeRoot 'configs'
 $LogDir = Join-Path $RuntimeRoot 'logs'
 
+function Resolve-PostgresCommand([string]$Name) {
+    $command = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($null -ne $command) { return $command.Source }
+    $candidate = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PostgreSQL') '16') 'bin'
+    $candidate = Join-Path $candidate "$Name.exe"
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+    return $null
+}
+
 function Import-RouterEnv([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) {
         throw "Native router env file not found: $Path"
@@ -90,14 +99,14 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 }
 
 if (-not $NoDatabaseWait) {
-    $pgReady = Get-Command pg_isready -ErrorAction SilentlyContinue
-    if ($null -eq $pgReady) {
+    $pgReady = Resolve-PostgresCommand 'pg_isready'
+    if ([string]::IsNullOrWhiteSpace($pgReady)) {
         throw 'pg_isready was not found. Install PostgreSQL command-line tools.'
     }
 
     $ready = $false
     for ($i = 0; $i -lt 30; $i++) {
-        & $pgReady.Source -d $env:DATABASE_URL -t 2 *> $null
+        & $pgReady -d $env:DATABASE_URL -t 2 *> $null
         if ($LASTEXITCODE -eq 0) {
             $ready = $true
             break
