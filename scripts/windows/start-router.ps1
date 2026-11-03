@@ -68,6 +68,17 @@ $env:NO_REDOC = 'True'
 $env:NO_OPENAPI = 'True'
 $env:CHECKPOINT_DISABLE = '1'
 
+# Native processes inherit the user's environment. Clear SSO discovery inputs
+# so the no-SSO Admin UI hardening assumption remains identical to Compose.
+foreach ($ssoName in @(
+    'GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET',
+    'MICROSOFT_CLIENT_ID','MICROSOFT_CLIENT_SECRET','MICROSOFT_TENANT',
+    'GENERIC_CLIENT_ID','GENERIC_CLIENT_SECRET',
+    'SAML_IDP_METADATA_URL','SAML_IDP_METADATA_XML'
+)) {
+    [Environment]::SetEnvironmentVariable($ssoName, $null, 'Process')
+}
+
 $configName = switch ($Mode) {
     'subscription' { 'subscription.yaml' }
     'model-probe' { 'model-probe.yaml' }
