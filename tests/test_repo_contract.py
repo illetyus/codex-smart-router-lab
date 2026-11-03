@@ -674,3 +674,15 @@ def test_postgres_ci_image_is_updated_to_current_16_15_bookworm_digest():
     assert image == 'postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938'
     lock = json.loads((ROOT / 'upstream.lock.json').read_text())
     assert lock['runtime_dependencies']['postgres_image'] == image
+
+
+def test_native_launcher_clears_inherited_sso_configuration():
+    text = (ROOT / 'scripts/windows/start-router.ps1').read_text()
+    for name in (
+        'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
+        'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET', 'MICROSOFT_TENANT',
+        'GENERIC_CLIENT_ID', 'GENERIC_CLIENT_SECRET',
+        'SAML_IDP_METADATA_URL', 'SAML_IDP_METADATA_XML',
+    ):
+        assert name in text
+    assert "SetEnvironmentVariable($ssoName, $null, 'Process')" in text
