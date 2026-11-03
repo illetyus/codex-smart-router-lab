@@ -130,23 +130,28 @@ def test_phase1_installer_does_not_mutate_codex_config_or_auth():
     assert 'RandomNumberGenerator' in text
     assert "Join-Path $env:USERPROFILE '.codex'" not in text
     assert 'auth.json' not in text
-    assert text.count('Set-Content -Path') == 1
-    assert 'Set-Content -Path $EnvFile' in text
+    assert 'OPENAI_API_KEY is prohibited' in text
+    assert 'router.env' in text
     assert 'docker compose' in text
 
 
 def test_uninstall_preserves_data_by_default():
     text = (ROOT / 'scripts/windows/uninstall.ps1').read_text()
     assert '[switch]$RemoveData' in text
+    assert "ValidateSet('native','docker')" in text
+    assert 'Unregister-ScheduledTask' in text
     assert "docker compose down -v" in text
-    assert "docker compose down\n" in text
-    assert text.index("if ($RemoveData)") < text.index("docker compose down -v")
+    assert 'PostgreSQL database is preserved' in text
+    assert text.index("if ($RemoveData)") < text.index('Remove-Item -LiteralPath $RuntimeRoot')
 
 
-def test_preflight_checks_docker_daemon_before_install():
+def test_preflight_checks_runtime_specific_prerequisites():
     text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    assert "ValidateSet('native','docker')" in text
+    assert "if ($Runtime -eq 'docker')" in text
     assert "docker version" in text
     assert "DockerDaemon" in text
+    assert "Test-Command 'uv'" in text
     assert "exit 1" in text
 
 
@@ -212,7 +217,7 @@ def test_heavy_smoke_executes_real_autorouter_dry_run():
 def test_supply_chain_refs_are_immutable():
     compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
     assert compose['services']['db']['image'] == (
-        'postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74'
+        'postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938'
     )
     for workflow in ('.github/workflows/ci.yml', '.github/workflows/heavy-smoke.yml'):
         text = (ROOT / workflow).read_text()
@@ -402,11 +407,13 @@ def test_runtime_key_profile_matches_public_router_surface():
         assert model in text
 
 
-def test_preflight_checks_compose_powershell_and_loopback_port():
+def test_preflight_checks_powershell_loopback_and_optional_compose():
     text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
     assert 'docker compose version' in text
     assert 'PowerShell7' in text
     assert 'Port4000Available' in text
+    assert "if ($Runtime -eq 'docker')" in text
+    assert "Test-Command 'pg_isready'" in text
 
 
 def test_heavy_smoke_checks_readiness_not_only_liveliness():
