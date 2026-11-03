@@ -697,3 +697,12 @@ def test_key_management_prefers_native_gateway_env_with_docker_fallback():
         assert "Join-Path $RuntimeRoot 'router.env'" in text
         assert "Join-Path $RepoRoot '.env'" in text
         assert 'Get-DotEnvValue -Path $GatewayEnvPath' in text
+
+
+def test_native_windows_discovers_standard_postgres_bin_without_path_edit():
+    for name in ('preflight.ps1', 'start-router.ps1', 'provision-postgres.ps1'):
+        text = (ROOT / 'scripts/windows' / name).read_text()
+        assert 'PostgreSQL' in text
+        assert "'16'" in text
+        assert "'bin'" in text
+        assert 'Resolve-PostgresCommand' in text
