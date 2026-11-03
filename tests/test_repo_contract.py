@@ -706,3 +706,17 @@ def test_native_windows_discovers_standard_postgres_bin_without_path_edit():
         assert "'16'" in text
         assert "'bin'" in text
         assert 'Resolve-PostgresCommand' in text
+
+
+def test_native_runtime_clears_inherited_paid_api_key():
+    for name in ('install.ps1', 'start-router.ps1'):
+        text = (ROOT / 'scripts/windows' / name).read_text()
+        assert "SetEnvironmentVariable('OPENAI_API_KEY', $null, 'Process')" in text
+
+
+def test_native_postgres_provisioner_refuses_nonlocal_server_listener():
+    text = (ROOT / 'scripts/windows/provision-postgres.ps1').read_text()
+    assert 'SHOW listen_addresses' in text
+    assert 'PostgreSQL listen_addresses is not local-only' in text
+    for unsafe in ("'*'", "'0.0.0.0'"):
+        assert unsafe in text
