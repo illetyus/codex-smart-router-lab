@@ -10,6 +10,15 @@ function Test-Command([string]$Name) {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Resolve-PostgresCommand([string]$Name) {
+    $command = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($null -ne $command) { return $command.Source }
+    $candidate = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PostgreSQL') '16') 'bin'
+    $candidate = Join-Path $candidate "$Name.exe"
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+    return $null
+}
+
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $ComposeFile = Join-Path $RepoRoot 'docker-compose.yml'
 
@@ -66,9 +75,9 @@ if ($Runtime -eq 'docker') {
 else {
     $checks['uv'] = Test-Command 'uv'
     $checks['node'] = Test-Command 'node'
-    $checks['psql'] = Test-Command 'psql'
-    $checks['pg_isready'] = Test-Command 'pg_isready'
-    $checks['createdb'] = Test-Command 'createdb'
+    $checks['psql'] = (Test-Command 'psql') -or -not [string]::IsNullOrWhiteSpace((Resolve-PostgresCommand 'psql'))
+    $checks['pg_isready'] = (Test-Command 'pg_isready') -or -not [string]::IsNullOrWhiteSpace((Resolve-PostgresCommand 'pg_isready'))
+    $checks['createdb'] = (Test-Command 'createdb') -or -not [string]::IsNullOrWhiteSpace((Resolve-PostgresCommand 'createdb'))
 
     if ($checks['node']) {
         try {
