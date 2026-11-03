@@ -6,19 +6,22 @@ Do not enable `autorouter` mode until every gate below passes.
 
 ## 1. Start the baseline gateway
 
-From this repository in PowerShell:
+The primary user path is native Windows. Install PostgreSQL 16.15 and its command-line tools, then run:
 
 ```powershell
-pwsh -File .\scripts\windows\preflight.ps1
-pwsh -File .\scripts\windows\install.ps1 -Mode subscription
+pwsh -File .\scripts\windows\provision-postgres.ps1
+pwsh -File .\scripts\windows\preflight.ps1 -Runtime native
+pwsh -File .\scripts\windows\install.ps1 -Runtime native -Mode subscription
 ```
 
 Expected state:
 
 - LiteLLM listens only on `127.0.0.1:4000`.
-- Postgres is reachable only inside the Compose network.
-- `configs/litellm/subscription.yaml` exposes direct `gpt-6.1-sol` plus `codex-*` passthrough for Codex approval/review requests.
+- PostgreSQL runs as a local Windows service and is reached through the private `DATABASE_URL` in `%LOCALAPPDATA%\CodexSmartRouter\router.env`.
+- The native LiteLLM process is installed from the audited source commit, not a floating package.
+- `configs/litellm/subscription.yaml` exposes direct `gpt-6.1-sol` plus `gpt-image-2` and `codex-*` passthrough.
 - No `OPENAI_API_KEY` exists in the gateway configuration.
+- Docker is not required on the user's PC; Docker remains a CI/Heavy Smoke validation path.
 
 Check health:
 
@@ -34,7 +37,7 @@ Preferred path:
 pwsh -File .\scripts\windows\provision-codex-key.ps1 -Profile k2
 ```
 
-The helper reads the local gateway master key from this repository's ignored `.env`, asks the localhost LiteLLM gateway for a `codex-k2` virtual key, verifies its allowlist through header-only `/key/info`, and stores only the resulting virtual key in `%USERPROFILE%\.codex\.env`. The key value is never printed. If a Codex `.env` already exists, its other lines are preserved and a one-time `.env.pre-litellm-backup` is created.
+The helper prefers the native gateway master key from `%LOCALAPPDATA%\CodexSmartRouter\router.env` and falls back to the repository `.env` only for the Docker/CI-compatible path. It asks the localhost LiteLLM gateway for a `codex-k2` virtual key and stores only the resulting virtual key in `%USERPROFILE%\.codex\.env`. The key value is never printed. If a Codex `.env` already exists, its other lines are preserved and a one-time `.env.pre-litellm-backup` is created.
 
 The K2 allowlist is exactly:
 
@@ -103,11 +106,11 @@ K2 is **not** complete if any of the following occurs:
 
 ## 7. Rollback proof
 
-Close Codex App, restore the pre-LiteLLM Codex configuration and dotenv, then stop the local gateway:
+Close Codex App, restore the pre-LiteLLM Codex configuration and dotenv, then stop the native gateway:
 
 ```powershell
 pwsh -File .\scripts\windows\restore-codex-provider.ps1
-pwsh -File .\scripts\windows\uninstall.ps1
+pwsh -File .\scripts\windows\uninstall.ps1 -Runtime native
 ```
 
 The restore helper copies the original `config.toml` backup back byte-for-byte. If a pre-LiteLLM `.env` backup exists it restores that too; otherwise it removes only the `LITELLM_API_KEY` line. It never modifies ChatGPT authentication files.
