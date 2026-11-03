@@ -11,6 +11,15 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Resolve-PostgresCommand([string]$Name) {
+    $command = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($null -ne $command) { return $command.Source }
+    $candidate = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PostgreSQL') '16') 'bin'
+    $candidate = Join-Path $candidate "$Name.exe"
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+    return $null
+}
+
 function New-RandomHex([int]$Bytes = 24) {
     $buffer = New-Object byte[] $Bytes
     [System.Security.Cryptography.RandomNumberGenerator]::Fill($buffer)
@@ -68,9 +77,9 @@ foreach ($identifier in @($DatabaseName, $RoleName, $AdminUser)) {
     }
 }
 
-$psql = Get-Command psql -ErrorAction SilentlyContinue
-$createdb = Get-Command createdb -ErrorAction SilentlyContinue
-if ($null -eq $psql -or $null -eq $createdb) {
+$psql = Resolve-PostgresCommand 'psql'
+$createdb = Resolve-PostgresCommand 'createdb'
+if ([string]::IsNullOrWhiteSpace($psql) -or [string]::IsNullOrWhiteSpace($createdb)) {
     throw 'psql/createdb were not found. Install PostgreSQL 16 command-line tools first.'
 }
 
@@ -84,32 +93,32 @@ try {
     $adminPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     $env:PGPASSWORD = $adminPlain
 
-    & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -tAc 'SELECT 1;' *> $null
+    & $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -tAc 'SELECT 1;' *> $null
     if ($LASTEXITCODE -ne 0) {
         throw 'PostgreSQL administrator authentication failed.'
     }
 
     $dbPassword = New-RandomHex
-    $roleExists = (& $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$RoleName';").Trim()
+    $roleExists = (& $psql -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$RoleName';").Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect PostgreSQL roles.' }
 
     if ($roleExists -eq '1') {
-        & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "ALTER ROLE $RoleName WITH LOGIN PASSWORD '$dbPassword';" *> $null
+        & $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "ALTER ROLE $RoleName WITH LOGIN PASSWORD '$dbPassword';" *> $null
     }
     else {
-        & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE $RoleName WITH LOGIN PASSWORD '$dbPassword';" *> $null
+        & $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE $RoleName WITH LOGIN PASSWORD '$dbPassword';" *> $null
     }
     if ($LASTEXITCODE -ne 0) { throw 'Failed to create/update the LiteLLM PostgreSQL role.' }
 
-    $dbExists = (& $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$DatabaseName';").Trim()
+    $dbExists = (& $psql -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$DatabaseName';").Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect PostgreSQL databases.' }
 
     if ($dbExists -ne '1') {
-        & $createdb.Source -h $HostName -p $Port -U $AdminUser -O $RoleName $DatabaseName
+        & $createdb -h $HostName -p $Port -U $AdminUser -O $RoleName $DatabaseName
         if ($LASTEXITCODE -ne 0) { throw 'Failed to create the LiteLLM PostgreSQL database.' }
     }
     else {
-        & $psql.Source -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE $DatabaseName OWNER TO $RoleName;" *> $null
+        & $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE $DatabaseName OWNER TO $RoleName;" *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Failed to set the LiteLLM database owner.' }
     }
 
