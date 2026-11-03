@@ -2,6 +2,8 @@
 param(
     [string]$BaseUrl = 'http://127.0.0.1:4000',
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
+    [string]$RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'CodexSmartRouter'),
+    [string]$GatewayEnvPath = '',
     [string]$CodexHome = (Join-Path $env:USERPROFILE '.codex')
 )
 
