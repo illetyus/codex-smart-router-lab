@@ -98,6 +98,16 @@ try {
         throw 'PostgreSQL administrator authentication failed.'
     }
 
+    $serverVersion = (& $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -tAc 'SHOW server_version;').Trim()
+    if ($LASTEXITCODE -ne 0 -or $serverVersion -notmatch '^(\d+)\.(\d+)') {
+        throw "Unable to verify PostgreSQL server version: $serverVersion"
+    }
+    $serverMajor = [int]$Matches[1]
+    $serverMinor = [int]$Matches[2]
+    if ($serverMajor -ne 16 -or $serverMinor -lt 15) {
+        throw "PostgreSQL 16.15 or newer 16.x is required; found $serverVersion"
+    }
+
     $listenAddresses = (& $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -tAc 'SHOW listen_addresses;').Trim()
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to inspect PostgreSQL listen_addresses.'
