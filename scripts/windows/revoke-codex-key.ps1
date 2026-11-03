@@ -28,9 +28,16 @@ function Protect-SecretFile([string]$Path) {
     Set-Acl -LiteralPath $Path -AclObject $acl
 }
 
-$repoEnv = Join-Path $RepoRoot '.env'
+if ([string]::IsNullOrWhiteSpace($GatewayEnvPath)) {
+    $nativeEnv = Join-Path $RuntimeRoot 'router.env'
+    $GatewayEnvPath = if (Test-Path -LiteralPath $nativeEnv) {
+        $nativeEnv
+    } else {
+        Join-Path $RepoRoot '.env'
+    }
+}
 $codexEnv = Join-Path $CodexHome '.env'
-$masterKey = Get-DotEnvValue -Path $repoEnv -Name 'LITELLM_MASTER_KEY'
+$masterKey = Get-DotEnvValue -Path $GatewayEnvPath -Name 'LITELLM_MASTER_KEY'
 $virtualKey = Get-DotEnvValue -Path $codexEnv -Name 'LITELLM_API_KEY'
 $base = $BaseUrl.TrimEnd('/')
 $body = @{ keys = @($virtualKey) } | ConvertTo-Json -Depth 5
