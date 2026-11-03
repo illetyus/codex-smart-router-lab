@@ -14,18 +14,23 @@ Last updated: 2026-11-03
 - Models remain Git/YAML-owned with `STORE_MODEL_IN_DB=False`.
 - Windows preflight/install/verify/uninstall plus key provision/revoke, drift-safe rollback, and managed AGENTS policy scripts are present.
 - Pre-live evidence collection, routing calibration fixtures, and deterministic escalation fixtures are present.
-- Exact-main validation checkpoint `385ee15faf7b32bfa32b488952af40871128cb78` passed:
-  - CI run `41326907192`: success; 59 pytest contract tests passed, PowerShell behavior tests passed, upstream source contracts passed.
-  - Heavy Docker smoke run `41326907185`: success; pinned LiteLLM source built, Postgres readiness passed, restricted K2 key worked, model-probe mode restarted cleanly, and `/auto_router/test_routing` selected the expected SIMPLE/Luna route.
-- Final pre-live security hardening is now encoded in tests/config:
+- Final pre-live security hardening is encoded and tested:
   - direct-client `trusted_proxy_ranges: []`,
-  - disabled Admin UI and API documentation surfaces,
+  - Admin UI authentication disabled for the pinned LiteLLM runtime,
+  - Swagger/ReDoc/OpenAPI surfaces disabled,
   - server-side 30-day virtual-key lifetime cap,
-  - Heavy Smoke assertions for the disabled surfaces and overlong-key rejection.
+  - no SSO provider credentials passed into the container,
+  - Heavy Smoke assertions for the management boundary and overlong-key rejection.
+- Final hardened code-bearing checkpoint `0af84ab3b2a32af43a2d46afe2243259cffd1625` passed:
+  - CI run `41539957203`: success.
+  - Heavy Docker smoke run `41539957189`: success.
+  - The smoke built the pinned LiteLLM source, connected Postgres, verified liveness/readiness, proved the restricted K2 key and duration cap, exercised the pinned Admin UI disable boundary, restarted cleanly in model-probe mode, restarted in Auto Router mode, and completed the real-proxy routing dry-run.
 
 ## Current gate
 
-The hardening change must pass normal branch CI, merge to `main`, and then pass Heavy Docker smoke on that merged code-bearing SHA. A later documentation-only evidence commit may record that SHA without invalidating the runtime smoke result.
+Repository-side pre-install validation is complete.
+
+The next evidence boundary is K2 on the user's Windows machine in `subscription` mode. Documentation-only commits made after the code-bearing checkpoint above do not change the runtime artifact that passed Heavy Docker Smoke.
 
 ## Not yet proven
 
@@ -38,4 +43,4 @@ The hardening change must pass normal branch CI, merge to `main`, and then pass 
 
 ## Next gate
 
-After the hardening merge's exact-main Heavy Docker smoke passes, repository-side pre-install validation is complete. K2 begins on the user's Windows machine in `subscription` mode, not Auto Router mode.
+Run K2 on Windows: preflight, subscription-mode gateway, restricted key, Codex provider configuration, full Desktop restart, a brand-new task, the exact Hello probe, LiteLLM log correlation, sanitized evidence capture, and rollback rehearsal.

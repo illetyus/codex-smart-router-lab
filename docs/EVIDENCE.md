@@ -12,16 +12,26 @@ This repository separates claims that can be proven before installation from cla
 
 ## Repository validation checkpoint
 
-The last completed pre-hardening code-bearing main checkpoint is:
+The final hardened code-bearing main checkpoint is:
 
-- main SHA: `385ee15faf7b32bfa32b488952af40871128cb78`
-- CI run: `41326907192` — success
-- Heavy Docker smoke run: `41326907185` — success
+- main SHA: `0af84ab3b2a32af43a2d46afe2243259cffd1625`
+- CI run: `41539957203` — success
+- Heavy Docker smoke run: `41539957189` — success
 - observed readiness: LiteLLM healthy and database connected
 - restricted K2 key allowlist: `gpt-6.1-sol`, `gpt-image-2`, `codex-*`
+- virtual-key upper-bound proof: a 31-day request is rejected under the 30-day server cap
+- management hardening proof: the pinned runtime advertises `admin_ui_disabled=true`; its UI authentication endpoint returns the explicit disabled response; Swagger/ReDoc/OpenAPI are unavailable
+- router-free model-probe mode restarts cleanly
 - Auto Router dry-run: SIMPLE → `luna-upstream`, `reasoning_effort=medium`
 
-The final hardening change adds runtime assertions for disabled management/documentation surfaces and rejection of a 31-day virtual key under the 30-day server cap. After that code merges, Heavy Docker smoke must run again on the merged code-bearing SHA.
+This closes repository-side pre-install validation. Later documentation-only evidence commits do not invalidate this code-bearing Heavy Smoke result.
+
+
+## Admin UI / CLI SSO scope
+
+Pinned LiteLLM source `4bdeb137...` has an explicit exception in `/sso/key/generate` for requests whose `source=litellm-cli`. That exception is for LiteLLM's CLI SSO flow, not for the browser Admin UI. It requires a valid CLI SSO flow handle and an actually configured SSO provider before it can complete authentication.
+
+This deployment passes no `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, or `GENERIC_CLIENT_ID` into the LiteLLM container and does not configure SAML. With `DISABLE_ADMIN_UI=True`, the current no-SSO deployment therefore cannot complete that CLI SSO path into an Admin UI session. If SSO is added later, this boundary must be re-audited and Heavy Smoke extended before treating the same hardening claim as valid.
 
 ## LiteLLM release maturity
 

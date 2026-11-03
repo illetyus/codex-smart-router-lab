@@ -26,7 +26,11 @@ LiteLLM documents `[]` for direct clients so the TCP peer address is used and ca
 
 The project does not use LiteLLM's browser administration surface. Compose therefore sets `DISABLE_ADMIN_UI=True`. Swagger/ReDoc/OpenAPI discovery is also unnecessary for the Codex gateway, so `NO_DOCS=True`, `NO_REDOC=True`, and `NO_OPENAPI=True` are set. Inference, health, and authenticated management APIs remain available.
 
-For the pinned LiteLLM source `4bdeb137...`, `/ui` static assets remain mounted even when `DISABLE_ADMIN_UI=True`; `/ui` therefore normalizes to `/ui/` and may return HTTP 200. That static response is not the authorization boundary. Heavy Smoke instead verifies the server-side discovery flag `admin_ui_disabled=true` at `/.well-known/litellm-ui-config` and verifies that `/sso/key/generate` returns the explicit `Admin UI is Disabled` page before authentication. If the LiteLLM pin changes, revalidate these exact-version semantics.
+For the pinned LiteLLM source `4bdeb137...`, `/ui` static assets remain mounted even when `DISABLE_ADMIN_UI=True`; `/ui` therefore normalizes to `/ui/` and may return HTTP 200. That static response is not the authorization boundary. Heavy Smoke instead verifies the server-side discovery flag `admin_ui_disabled=true` at `/.well-known/litellm-ui-config` and verifies that a normal `/sso/key/generate` request returns the explicit `Admin UI is Disabled` page before authentication.
+
+The same pinned source contains a deliberate CLI SSO exception: `/sso/key/generate?source=litellm-cli` may pass the first Admin-UI-disabled gate when it carries a valid CLI flow handle. This deployment has no SSO provider credentials in Compose (`GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, and `GENERIC_CLIENT_ID` are not passed, and SAML is not configured), so the exception cannot complete an SSO login and falls back to the disabled boundary. This is why the security claim is scoped to the current no-SSO localhost deployment. If SSO is introduced later, re-audit this path and extend Heavy Smoke before release.
+
+If the LiteLLM pin changes, revalidate these exact-version semantics.
 
 ## Secret lifetime and Windows ACLs
 
