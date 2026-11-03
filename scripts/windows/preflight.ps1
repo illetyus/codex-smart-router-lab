@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet('native','docker')]
+    [string]$Runtime = 'native'
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -13,7 +16,6 @@ $ComposeFile = Join-Path $RepoRoot 'docker-compose.yml'
 $checks = [ordered]@{}
 $checks['Windows'] = $IsWindows -or $env:OS -eq 'Windows_NT'
 $checks['PowerShell7'] = $PSVersionTable.PSVersion.Major -ge 7
-$checks['DockerCLI'] = Test-Command 'docker'
 $checks['Git'] = Test-Command 'git'
 $checks['CodexHome'] = Test-Path (Join-Path $env:USERPROFILE '.codex')
 $checks['CodexConfig'] = Test-Path (Join-Path $env:USERPROFILE '.codex\config.toml')
@@ -23,37 +25,64 @@ try {
     $listener.Start()
     $listener.Stop()
     $checks['Port4000Available'] = $true
-} catch {
+}
+catch {
     $checks['Port4000Available'] = $false
 }
 
-if (-not $checks['Port4000Available'] -and $checks['DockerCLI']) {
+if (-not $checks['Port4000Available']) {
     try {
-        $running = @(docker compose -f $ComposeFile ps --status running --services 2>$null)
-        if ($running -contains 'litellm') {
-            $checks['Port4000Available'] = $true
-        }
-    } catch {
-        # Keep the failed port check; a foreign listener must block installation.
+        Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:4000/health/liveliness' -TimeoutSec 2 | Out-Null
+        $checks['Port4000Available'] = $true
+    }
+    catch {
+        # A foreign listener on the router port remains a hard failure.
     }
 }
 
-if ($checks['DockerCLI']) {
-    try {
-        docker version --format '{{.Server.Version}}' | Out-Null
-        $checks['DockerDaemon'] = $true
-    } catch {
-        $checks['DockerDaemon'] = $false
+if ($Runtime -eq 'native') {
+    $checks['uv'] = Test-Command 'uv'
+    $checks['node'] = Test-Command 'node'
+    $checks['psql'] = Test-Command 'psql'
+    $checks['pg_isready'] = Test-Command 'pg_isready'
+    $checks['createdb'] = Test-Command 'createdb'
+
+    if ($checks['node']) {
+        try {
+            $nodeVersion = (& node --version).Trim().TrimStart('v')
+            $nodeMajor = [int]($nodeVersion.Split('.')[0])
+            $checks['Node24OrNewer'] = $nodeMajor -ge 24
+        }
+        catch {
+            $checks['Node24OrNewer'] = $false
+        }
     }
-    try {
-        docker compose version | Out-Null
-        $checks['DockerCompose'] = $true
-    } catch {
+    else {
+        $checks['Node24OrNewer'] = $false
+    }
+}
+else {
+    $checks['DockerCLI'] = Test-Command 'docker'
+    if ($checks['DockerCLI']) {
+        try {
+            docker version --format '{{.Server.Version}}' | Out-Null
+            $checks['DockerDaemon'] = $true
+        }
+        catch {
+            $checks['DockerDaemon'] = $false
+        }
+        try {
+            docker compose version | Out-Null
+            $checks['DockerCompose'] = $true
+        }
+        catch {
+            $checks['DockerCompose'] = $false
+        }
+    }
+    else {
+        $checks['DockerDaemon'] = $false
         $checks['DockerCompose'] = $false
     }
-} else {
-    $checks['DockerDaemon'] = $false
-    $checks['DockerCompose'] = $false
 }
 
 $checks.GetEnumerator() | ForEach-Object {
