@@ -40,28 +40,7 @@ if (-not $checks['Port4000Available']) {
     }
 }
 
-if ($Runtime -eq 'native') {
-    $checks['uv'] = Test-Command 'uv'
-    $checks['node'] = Test-Command 'node'
-    $checks['psql'] = Test-Command 'psql'
-    $checks['pg_isready'] = Test-Command 'pg_isready'
-    $checks['createdb'] = Test-Command 'createdb'
-
-    if ($checks['node']) {
-        try {
-            $nodeVersion = (& node --version).Trim().TrimStart('v')
-            $nodeMajor = [int]($nodeVersion.Split('.')[0])
-            $checks['Node24OrNewer'] = $nodeMajor -ge 24
-        }
-        catch {
-            $checks['Node24OrNewer'] = $false
-        }
-    }
-    else {
-        $checks['Node24OrNewer'] = $false
-    }
-}
-else {
+if ($Runtime -eq 'docker') {
     $checks['DockerCLI'] = Test-Command 'docker'
     if ($checks['DockerCLI']) {
         try {
@@ -82,6 +61,27 @@ else {
     else {
         $checks['DockerDaemon'] = $false
         $checks['DockerCompose'] = $false
+    }
+}
+else {
+    $checks['uv'] = Test-Command 'uv'
+    $checks['node'] = Test-Command 'node'
+    $checks['psql'] = Test-Command 'psql'
+    $checks['pg_isready'] = Test-Command 'pg_isready'
+    $checks['createdb'] = Test-Command 'createdb'
+
+    if ($checks['node']) {
+        try {
+            $nodeVersion = (& node --version).Trim().TrimStart('v')
+            $nodeMajor = [int]($nodeVersion.Split('.')[0])
+            $checks['Node24OrNewer'] = $nodeMajor -ge 24
+        }
+        catch {
+            $checks['Node24OrNewer'] = $false
+        }
+    }
+    else {
+        $checks['Node24OrNewer'] = $false
     }
 }
 
