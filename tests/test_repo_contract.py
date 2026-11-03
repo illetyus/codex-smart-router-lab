@@ -532,11 +532,13 @@ def test_security_docs_record_hardening_and_litellm_release_maturity():
     assert 'stable `v1.109.0`' in evidence
 
 
-def test_status_no_longer_claims_final_heavy_smoke_is_pending():
+def test_status_records_final_hardened_code_checkpoint():
     status = (ROOT / 'docs/STATUS.md').read_text()
-    assert '41326907185' in status
-    assert '385ee15faf7b32bfa32b488952af40871128cb78' in status
-    assert 'Final heavy Docker smoke on the current hardened main' not in status
+    assert '41539957203' in status
+    assert '41539957189' in status
+    assert '0af84ab3b2a32af43a2d46afe2243259cffd1625' in status
+    assert 'repository-side pre-install validation is complete' in status.lower()
+    assert 'must pass normal branch CI' not in status
 
 
 def test_heavy_smoke_proves_management_surface_hardening_and_key_cap():
@@ -554,3 +556,14 @@ def test_heavy_smoke_proves_management_surface_hardening_and_key_cap():
     assert '31d' in tool
     assert 'HTTPError' in tool
     assert 'virtual-key duration cap' in tool
+
+
+def test_security_docs_scope_admin_ui_disable_and_keep_sso_unconfigured():
+    security = (ROOT / 'docs/SECURITY.md').read_text()
+    compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
+    env = compose['services']['litellm']['environment']
+    for name in ('GOOGLE_CLIENT_ID', 'MICROSOFT_CLIENT_ID', 'GENERIC_CLIENT_ID'):
+        assert name not in env
+    assert 'source=litellm-cli' in security
+    assert 'CLI SSO' in security
+    assert 'no SSO provider credentials' in security
