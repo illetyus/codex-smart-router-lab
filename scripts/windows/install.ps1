@@ -135,6 +135,7 @@ if ($Runtime -eq 'docker') {
 }
 
 if ($PSCmdlet.ShouldProcess($RuntimeRoot, "install pinned native LiteLLM in $Mode mode")) {
+    [Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null, 'Process')
     New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
     $EnvFile = Join-Path $RuntimeRoot 'router.env'
 
