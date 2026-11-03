@@ -5,6 +5,8 @@ param(
     [string]$Duration = '30d',
     [string]$BaseUrl = 'http://127.0.0.1:4000',
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
+    [string]$RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'CodexSmartRouter'),
+    [string]$GatewayEnvPath = '',
     [string]$CodexHome = (Join-Path $env:USERPROFILE '.codex')
 )
 
@@ -50,8 +52,15 @@ function Get-DotEnvValue {
     return ($line -split '=', 2)[1].Trim()
 }
 
-$repoEnv = Join-Path $RepoRoot '.env'
-$masterKey = Get-DotEnvValue -Path $repoEnv -Name 'LITELLM_MASTER_KEY'
+if ([string]::IsNullOrWhiteSpace($GatewayEnvPath)) {
+    $nativeEnv = Join-Path $RuntimeRoot 'router.env'
+    $GatewayEnvPath = if (Test-Path -LiteralPath $nativeEnv) {
+        $nativeEnv
+    } else {
+        Join-Path $RepoRoot '.env'
+    }
+}
+$masterKey = Get-DotEnvValue -Path $GatewayEnvPath -Name 'LITELLM_MASTER_KEY'
 if (-not $masterKey.StartsWith('sk-')) {
     throw 'LITELLM_MASTER_KEY has an unexpected format.'
 }
