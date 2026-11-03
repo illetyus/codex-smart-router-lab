@@ -567,3 +567,103 @@ def test_security_docs_scope_admin_ui_disable_and_keep_sso_unconfigured():
     assert 'source=litellm-cli' in security
     assert 'CLI SSO' in security
     assert 'no SSO provider credentials' in security
+
+
+def test_native_windows_runtime_files_exist():
+    required = [
+        'scripts/windows/start-router.ps1',
+        'scripts/windows/register-router-task.ps1',
+        'scripts/windows/provision-postgres.ps1',
+        'docs/NATIVE-WINDOWS.md',
+    ]
+    missing = [p for p in required if not (ROOT / p).exists()]
+    assert not missing, f'missing native Windows files: {missing}'
+
+
+def test_native_windows_is_default_runtime_and_keeps_docker_optional():
+    install = (ROOT / 'scripts/windows/install.ps1').read_text()
+    preflight = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    uninstall = (ROOT / 'scripts/windows/uninstall.ps1').read_text()
+    for text in (install, preflight, uninstall):
+        assert "ValidateSet('native','docker')" in text
+        assert "[string]$Runtime = 'native'" in text
+    assert "if ($Runtime -eq 'docker')" in install
+    assert 'uv sync' in install
+    assert 'docker compose' in install
+
+
+def test_native_installer_pins_source_and_reproduces_docker_python_contract():
+    text = (ROOT / 'scripts/windows/install.ps1').read_text()
+    assert '4bdeb1378bb19a453cd3c49d383ebe76f057d2c6' in text
+    assert 'git checkout --detach' in text
+    assert 'uv sync' in text
+    assert '--frozen' in text
+    assert '--python 3.13' in text
+    assert '--extra proxy' in text
+    assert '--extra extra_proxy' in text
+    assert 'prisma generate' in text
+    assert 'schema.prisma' in text
+
+
+def test_native_preflight_checks_required_tools_without_making_docker_mandatory():
+    text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    for check in ('uv', 'node', 'psql', 'pg_isready'):
+        assert f"Test-Command '{check}'" in text
+    assert "if ($Runtime -eq 'docker')" in text
+    assert 'DockerDaemon' in text
+
+
+def test_native_launcher_binds_loopback_and_restores_security_environment():
+    text = (ROOT / 'scripts/windows/start-router.ps1').read_text()
+    assert '--host' in text
+    assert '127.0.0.1' in text
+    assert '--port' in text
+    assert '4000' in text
+    for name in (
+        'DATABASE_URL', 'LITELLM_MASTER_KEY', 'LITELLM_SALT_KEY',
+        'STORE_MODEL_IN_DB', 'DISABLE_ADMIN_UI',
+        'NO_DOCS', 'NO_REDOC', 'NO_OPENAPI', 'CHECKPOINT_DISABLE',
+    ):
+        assert name in text
+    assert 'OPENAI_API_KEY' not in text
+
+
+def test_native_task_runs_at_logon_and_has_bounded_restart_policy():
+    text = (ROOT / 'scripts/windows/register-router-task.ps1').read_text()
+    assert 'New-ScheduledTaskAction' in text
+    assert 'New-ScheduledTaskTrigger' in text
+    assert 'Register-ScheduledTask' in text
+    assert 'AtLogOn' in text
+    assert 'RestartCount' in text
+    assert 'RestartInterval' in text
+    assert 'MultipleInstances' in text
+
+
+def test_native_postgres_provisioner_keeps_database_local_and_secrets_out_of_args():
+    text = (ROOT / 'scripts/windows/provision-postgres.ps1').read_text()
+    assert "[string]$HostName = '127.0.0.1'" in text
+    assert 'RandomNumberGenerator' in text
+    assert "$env:PGPASSWORD" in text
+    assert '--password' not in text
+    assert 'DATABASE_URL=' in text
+    assert 'Protect-SecretFile' in text
+
+
+def test_native_windows_docs_are_primary_user_install_path():
+    readme = (ROOT / 'README.md').read_text()
+    native = (ROOT / 'docs/NATIVE-WINDOWS.md').read_text()
+    assert 'Native Windows' in readme
+    assert 'Docker is not required' in readme
+    assert 'CI/Heavy Smoke' in readme
+    assert 'PostgreSQL 16.15' in native
+    assert '127.0.0.1:4000' in native
+    assert 'Task Scheduler' in native
+    assert 'K2' in native
+
+
+def test_postgres_ci_image_is_updated_to_current_16_15_bookworm_digest():
+    compose = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())
+    image = compose['services']['db']['image']
+    assert image == 'postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938'
+    lock = json.loads((ROOT / 'upstream.lock.json').read_text())
+    assert lock['runtime_dependencies']['postgres_image'] == image
