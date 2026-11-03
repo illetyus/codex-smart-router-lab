@@ -83,10 +83,10 @@ else {
         try {
             $nodeVersion = (& node --version).Trim().TrimStart('v')
             $nodeMajor = [int]($nodeVersion.Split('.')[0])
-            $checks['Node24OrNewer'] = $nodeMajor -ge 24
+            $checks['Node24'] = $nodeMajor -eq 24
         }
         catch {
-            $checks['Node24OrNewer'] = $false
+            $checks['Node24'] = $false
         }
     }
     else {
