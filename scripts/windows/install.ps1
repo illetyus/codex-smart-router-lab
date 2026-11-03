@@ -77,6 +77,31 @@ function Assert-NoPaidFallback([string]$Path) {
     }
 }
 
+function Assert-EnvFileSafe([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $raw = Get-Content -LiteralPath $Path -Raw
+    if ($raw -match 'CHANGE_ME') {
+        throw 'existing .env failed validation: placeholder CHANGE_ME value detected.'
+    }
+    if ($raw -match '(?m)^\s*OPENAI_API_KEY\s*=') {
+        throw 'existing .env failed validation: OPENAI_API_KEY is prohibited.'
+    }
+    foreach ($name in @('LITELLM_MASTER_KEY','LITELLM_SALT_KEY')) {
+        $value = Get-DotEnvValue -Path $Path -Name $name
+        if (-not [string]::IsNullOrWhiteSpace($value) -and (-not $value.StartsWith('sk-') -or $value.Length -lt 35)) {
+            throw "existing .env failed validation: $name is too short or malformed."
+        }
+    }
+    $postgresPassword = Get-DotEnvValue -Path $Path -Name 'POSTGRES_PASSWORD'
+    if (-not [string]::IsNullOrWhiteSpace($postgresPassword) -and $postgresPassword.Length -lt 32) {
+        throw 'existing .env failed validation: POSTGRES_PASSWORD is too short.'
+    }
+    $databaseUrl = Get-DotEnvValue -Path $Path -Name 'DATABASE_URL'
+    if (-not [string]::IsNullOrWhiteSpace($databaseUrl) -and -not $databaseUrl.StartsWith('postgresql://')) {
+        throw 'existing .env failed validation: DATABASE_URL must be a PostgreSQL URL.'
+    }
+}
+
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Runtime $Runtime
 if ($LASTEXITCODE -ne 0) { throw 'Preflight failed.' }
 
@@ -90,6 +115,7 @@ if ($Runtime -eq 'docker') {
         ) | Set-Content -LiteralPath $EnvFile -Encoding utf8NoBOM
     }
     Assert-NoPaidFallback -Path $EnvFile
+    Assert-EnvFileSafe -Path $EnvFile
     Protect-SecretFile -Path $EnvFile
 
     $config = switch ($Mode) {
@@ -136,6 +162,7 @@ if ($PSCmdlet.ShouldProcess($RuntimeRoot, "install pinned native LiteLLM in $Mod
     }
 
     Assert-NoPaidFallback -Path $EnvFile
+    Assert-EnvFileSafe -Path $EnvFile
     Protect-SecretFile -Path $EnvFile
 
     $SourceDir = Join-Path $RuntimeRoot 'litellm-src'
