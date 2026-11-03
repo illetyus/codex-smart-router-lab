@@ -720,3 +720,17 @@ def test_native_postgres_provisioner_refuses_nonlocal_server_listener():
     assert 'PostgreSQL listen_addresses is not local-only' in text
     for unsafe in ("'*'", "'0.0.0.0'"):
         assert unsafe in text
+
+
+def test_native_preflight_pins_node_major_to_24():
+    text = (ROOT / 'scripts/windows/preflight.ps1').read_text()
+    assert "$nodeMajor -eq 24" in text
+    assert "Node24" in text
+
+
+def test_native_postgres_provisioner_requires_postgres_16_15_or_newer_minor():
+    text = (ROOT / 'scripts/windows/provision-postgres.ps1').read_text()
+    assert 'SHOW server_version' in text
+    assert 'PostgreSQL 16.15 or newer 16.x is required' in text
+    assert '$serverMajor -ne 16' in text
+    assert '$serverMinor -lt 15' in text
