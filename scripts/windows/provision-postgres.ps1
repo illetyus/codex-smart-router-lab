@@ -98,6 +98,16 @@ try {
         throw 'PostgreSQL administrator authentication failed.'
     }
 
+    $listenAddresses = (& $psql -h $HostName -p $Port -U $AdminUser -d postgres -v ON_ERROR_STOP=1 -tAc 'SHOW listen_addresses;').Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to inspect PostgreSQL listen_addresses.'
+    }
+    $allowedListeners = @('localhost','127.0.0.1','::1')
+    $listeners = @($listenAddresses.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($listeners.Count -eq 0 -or @($listeners | Where-Object { $_ -notin $allowedListeners }).Count -gt 0 -or $listenAddresses -in @('*','0.0.0.0')) {
+        throw "PostgreSQL listen_addresses is not local-only: $listenAddresses"
+    }
+
     $dbPassword = New-RandomHex
     $roleExists = (& $psql -h $HostName -p $Port -U $AdminUser -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$RoleName';").Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect PostgreSQL roles.' }
