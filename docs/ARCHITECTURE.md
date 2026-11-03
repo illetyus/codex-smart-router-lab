@@ -9,6 +9,12 @@ The initial Auto Router policy is intentionally conservative: SIMPLE→Luna/medi
 Superpowers and Codex native subagents are the orchestration layer. LiteLLM classifies a new user turn; Superpowers owns task decomposition, review, and fix-loop escalation. Failure-driven model escalation should happen at a fresh-worker boundary, not by repeatedly changing models inside one long trajectory.
 
 
+## Windows runtime boundary
+
+The primary user deployment is native Windows, not Docker. PostgreSQL runs as a local Windows service; LiteLLM runs from the audited source checkout under `%LOCALAPPDATA%\CodexSmartRouter` using uv-managed Python 3.13. A current-user Task Scheduler entry starts the gateway at logon.
+
+Docker Compose remains an independent CI/Heavy Smoke harness. It is not a prerequisite for the user's PC and must not become the only place where runtime hardening is expressed. The native launcher therefore restores the same `STORE_MODEL_IN_DB=False`, Admin-UI/docs disable flags, no-SSO boundary, and explicit `127.0.0.1:4000` listener.
+
 ## Catalog-free router alias
 
 The first production candidate does not expose a new `codex-smart-router` model name to Codex. In Auto Router mode, LiteLLM exposes the router as `gpt-6.1-sol`, which Codex already knows, while the actual deployments are internal aliases (`luna-upstream`, `terra-upstream`, `sol-upstream`, `astra-upstream`). This follows LiteLLM's documented alternative to maintaining a custom Codex model catalog and avoids unknown-model tool-schema retransmission overhead.
