@@ -43,6 +43,14 @@ K7 must revisit this pin. If a suitable stable 1.109.x or later release contains
 
 LiteLLM also documents a different ChatGPT-provider mode in which the proxy owns a saved `CHATGPT_TOKEN_DIR/auth.json` login. That mode is process-wide and is not the architecture used here. This lab intentionally uses the Codex-forwarded subscription path and contains no proxy-side ChatGPT auth file.
 
+## Native Windows implementation evidence
+
+Current official LiteLLM documentation supports CLI/uv proxy deployment without Docker and requires PostgreSQL for virtual keys. The pinned LiteLLM source declares Python `>=3.10,<3.16`; its audited Docker build uses Python 3.13 and includes Node for Prisma. The native installer therefore uses the same exact source commit, committed `uv.lock`, Python 3.13, `proxy` + `extra_proxy`, pre-generates Prisma, and runs migrations before registering the logon task.
+
+PostgreSQL's official Windows page points to the EDB installer and supports silent or graphical installation. As of 2026-11-04 the current PostgreSQL 16 minor is 16.15. Docker CI is pinned to the matching `postgres:16.15-bookworm` multi-platform digest.
+
+This is an implementation contract, not live Windows proof. K2 still requires the user's actual machine.
+
 ## Must still be proven on the user's Windows machine
 
 - Codex Windows App actually forwards the user's current ChatGPT OAuth through the configured local provider.
@@ -61,6 +69,12 @@ LiteLLM also documents a different ChatGPT-provider mode in which the proxy owns
 - https://github.com/BerriAI/litellm/commit/4bdeb1378bb19a453cd3c49d383ebe76f057d2c6
 - https://github.com/BerriAI/litellm/releases
 
+- https://docs.litellm.ai/docs/proxy/quick_start
+- https://docs.litellm.ai/docs/proxy/virtual_keys
+- https://docs.litellm.ai/docs/troubleshoot/pip_venv_upgrade
+- https://docs.litellm.ai/docs/proxy/outbound_requests
+- https://www.postgresql.org/download/windows/
+
 ## Orchestration source contracts
 
 The repository also pins evidence snapshots for the orchestration layer:
@@ -71,7 +85,7 @@ The repository also pins evidence snapshots for the orchestration layer:
 
 ## Supply-chain pins
 
-- PostgreSQL: `postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74`.
+- PostgreSQL CI image: `postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938`.
 - GitHub Actions checkout: `3d3c42e5aac5ba805825da76410c181273ba90b1`.
 - GitHub Actions setup-python: `6d4fd22b20465ccc0f7354476588e8df7c9ca0e0`.
 
