@@ -75,9 +75,11 @@ jobs:
         run: |
           $testRoot = Join-Path $env:RUNNER_TEMP 'key-provisioner'
           $repoRoot = Join-Path $testRoot 'repo'
+          $runtimeRoot = Join-Path $testRoot 'runtime'
           $codexHome = Join-Path $testRoot 'codex'
-          New-Item -ItemType Directory -Force -Path $repoRoot, $codexHome | Out-Null
-          'LITELLM_MASTER_KEY=sk-test-master' | Set-Content -Path (Join-Path $repoRoot '.env') -Encoding utf8
+          New-Item -ItemType Directory -Force -Path $repoRoot, $runtimeRoot, $codexHome | Out-Null
+          'LITELLM_MASTER_KEY=sk-wrong-docker-fallback' | Set-Content -Path (Join-Path $repoRoot '.env') -Encoding utf8
+          'LITELLM_MASTER_KEY=sk-test-master' | Set-Content -Path (Join-Path $runtimeRoot 'router.env') -Encoding utf8
           'EXISTING_VAR=keep' | Set-Content -Path (Join-Path $codexHome '.env') -Encoding utf8
 
           $serverPath = Join-Path $testRoot 'mock_litellm.py'
@@ -158,7 +160,7 @@ jobs:
                 Start-Sleep -Milliseconds 250
               }
             }
-            $result = & ./scripts/windows/provision-codex-key.ps1 -Profile k2 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            $result = & ./scripts/windows/provision-codex-key.ps1 -Profile k2 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -RuntimeRoot $runtimeRoot -CodexHome $codexHome | ConvertFrom-Json
 
             if ($result.Profile -ne 'k2') { throw "Expected k2 profile, got $($result.Profile)" }
             if (@($result.Models).Count -ne 3) { throw 'Expected exactly three K2 models' }
@@ -172,7 +174,7 @@ jobs:
             if ($backupLines -notcontains 'EXISTING_VAR=keep') { throw 'Codex dotenv backup was not created correctly' }
             if (($backupLines -join [char]10) -match 'LITELLM_API_KEY') { throw 'Backup unexpectedly contains a LiteLLM virtual key' }
 
-            $k3 = & ./scripts/windows/provision-codex-key.ps1 -Profile k3 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            $k3 = & ./scripts/windows/provision-codex-key.ps1 -Profile k3 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -RuntimeRoot $runtimeRoot -CodexHome $codexHome | ConvertFrom-Json
             if ($k3.Profile -ne 'k3') { throw "Expected k3 profile, got $($k3.Profile)" }
             if (@($k3.Models).Count -ne 7) { throw 'Expected exactly seven K3 models' }
 
@@ -184,11 +186,11 @@ jobs:
             $backupAfterK3 = @(Get-Content -Path (Join-Path $codexHome '.env.pre-litellm-backup'))
             if (($backupAfterK3 -join [char]10) -ne ($backupLines -join [char]10)) { throw 'K3 provisioning modified the original backup' }
 
-            $runtime = & ./scripts/windows/provision-codex-key.ps1 -Profile runtime -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            $runtime = & ./scripts/windows/provision-codex-key.ps1 -Profile runtime -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -RuntimeRoot $runtimeRoot -CodexHome $codexHome | ConvertFrom-Json
             if ($runtime.Profile -ne 'runtime') { throw "Expected runtime profile, got $($runtime.Profile)" }
             if (@($runtime.Models).Count -ne 7) { throw 'Expected exactly seven runtime models' }
 
-            $revoked = & ./scripts/windows/revoke-codex-key.ps1 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -CodexHome $codexHome | ConvertFrom-Json
+            $revoked = & ./scripts/windows/revoke-codex-key.ps1 -BaseUrl 'http://127.0.0.1:18080' -RepoRoot $repoRoot -RuntimeRoot $runtimeRoot -CodexHome $codexHome | ConvertFrom-Json
             if (-not $revoked.Revoked) { throw 'Expected virtual key revocation to succeed' }
             $afterRevoke = @(Get-Content -Path (Join-Path $codexHome '.env'))
             if ($afterRevoke -notcontains 'EXISTING_VAR=keep') { throw 'Revocation lost unrelated dotenv content' }
