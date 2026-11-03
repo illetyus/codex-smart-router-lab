@@ -1,14 +1,23 @@
 # Rollback
 
-1. Stop the gateway with `scripts/windows/uninstall.ps1` (without `-RemoveData` unless the database should also be destroyed).
-2. Restore the pre-install `%USERPROFILE%\.codex\config.toml` backup if the Codex provider was changed.
-3. Restart Codex Windows App and verify a direct model request.
-4. Delete `%USERPROFILE%\.codex\.env` only if it contains no unrelated settings.
+The primary Windows runtime is native. Rollback keeps the PostgreSQL database unless the user explicitly removes it outside these scripts.
 
-The installer in phase 1 does not edit Codex's config automatically; therefore rollback of the initial gateway bring-up is only `docker compose down`.
+1. Close ChatGPT Desktop/Codex.
+2. Restore the pre-install Codex provider and dotenv with `scripts/windows/restore-codex-provider.ps1`.
+3. Stop/unregister the native router with `scripts/windows/uninstall.ps1 -Runtime native`.
+4. Restart ChatGPT Desktop/Codex and verify a direct Codex request.
 
+By default `uninstall.ps1 -Runtime native` preserves `%LOCALAPPDATA%\CodexSmartRouter` and the local PostgreSQL database. Add `-RemoveData` only when the installed LiteLLM source/config/secrets/logs should also be removed. Database deletion is deliberately not automated.
 
-## Drift-safe rollback
+The Docker compatibility/CI path can still be stopped explicitly with:
+
+```powershell
+pwsh -File .\scripts\windows\uninstall.ps1 -Runtime docker
+```
+
+Use `-RemoveData` on the Docker path only when the disposable Compose PostgreSQL volume should be deleted.
+
+## Drift-safe Codex rollback
 
 The configurator records a SHA-256 of the exact Codex config it installed, and the key provisioner records a SHA-256 of the Codex dotenv it last wrote. If either file changes later, rollback first writes a timestamped `pre-litellm-restore-conflict` copy before restoring the pre-LiteLLM snapshot. This prevents silent data loss while still providing a deterministic emergency rollback.
 
