@@ -63,6 +63,10 @@ if ($LASTEXITCODE -ne 0 -or $head -ne $PinnedLiteLLMRef) {
 
 Import-RouterEnv -Path $EnvFile
 
+# A user may legitimately keep an OpenAI Platform key for unrelated software.
+# This subscription-only gateway must never inherit it.
+[Environment]::SetEnvironmentVariable('OPENAI_API_KEY', $null, 'Process')
+
 foreach ($required in @('DATABASE_URL','LITELLM_MASTER_KEY','LITELLM_SALT_KEY')) {
     $value = [Environment]::GetEnvironmentVariable($required, 'Process')
     if ([string]::IsNullOrWhiteSpace($value)) {
