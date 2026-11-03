@@ -87,7 +87,7 @@ def test_codex_provider_preserves_chatgpt_auth():
 def test_env_example_contains_no_real_secrets():
     text = (ROOT / '.env.example').read_text()
     assert 'sk-' not in text
-    assert 'OPENAI_API_KEY is prohibited' in text
+    assert 'OPENAI_API_KEY' not in text
     assert 'CHANGE_ME' in text
 
 
@@ -632,7 +632,7 @@ def test_native_launcher_binds_loopback_and_restores_security_environment():
         'NO_DOCS', 'NO_REDOC', 'NO_OPENAPI', 'CHECKPOINT_DISABLE',
     ):
         assert name in text
-    assert 'OPENAI_API_KEY' not in text
+    assert 'OPENAI_API_KEY is prohibited' in text
 
 
 def test_native_task_runs_at_logon_and_has_bounded_restart_policy():
