@@ -87,7 +87,7 @@ def test_codex_provider_preserves_chatgpt_auth():
 def test_env_example_contains_no_real_secrets():
     text = (ROOT / '.env.example').read_text()
     assert 'sk-' not in text
-    assert 'OPENAI_API_KEY' not in text
+    assert 'OPENAI_API_KEY is prohibited' in text
     assert 'CHANGE_ME' in text
 
 
@@ -652,7 +652,8 @@ def test_native_postgres_provisioner_keeps_database_local_and_secrets_out_of_arg
     assert 'RandomNumberGenerator' in text
     assert "$env:PGPASSWORD" in text
     assert '--password' not in text
-    assert 'DATABASE_URL=' in text
+    assert 'DATABASE_URL' in text
+    assert 'Set-DotEnvValue' in text
     assert 'Protect-SecretFile' in text
 
 
