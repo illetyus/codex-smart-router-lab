@@ -21,6 +21,31 @@ def validate() -> list[str]:
     if litellm["build"].get("context") != expected_context:
         errors.append("LiteLLM source context is not pinned to the reviewed full SHA")
 
+
+    expected_postgres = "postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938"
+    if compose["services"]["db"].get("image") != expected_postgres:
+        errors.append("CI Postgres image must remain pinned to the reviewed PostgreSQL 16.15 digest")
+
+    install_text = (ROOT / "scripts/windows/install.ps1").read_text()
+    preflight_text = (ROOT / "scripts/windows/preflight.ps1").read_text()
+    launcher_text = (ROOT / "scripts/windows/start-router.ps1").read_text()
+    if "[string]$Runtime = 'native'" not in install_text:
+        errors.append("Native Windows must remain the default user runtime")
+    if PINNED_LITELLM_REF not in install_text or "--frozen" not in install_text or "--python 3.13" not in install_text:
+        errors.append("Native installer must reproduce the audited pinned LiteLLM source environment")
+    if "[string]$Runtime = 'native'" not in preflight_text:
+        errors.append("Native Windows preflight must remain the default")
+    for required in ("uv", "node", "psql", "pg_isready"):
+        if f"Test-Command '{required}'" not in preflight_text:
+            errors.append(f"Native preflight must check {required}")
+    if "--host 127.0.0.1" not in launcher_text:
+        errors.append("Native LiteLLM launcher must bind explicitly to IPv4 loopback")
+    for name in ("STORE_MODEL_IN_DB", "DISABLE_ADMIN_UI", "NO_DOCS", "NO_REDOC", "NO_OPENAPI", "CHECKPOINT_DISABLE"):
+        if name not in launcher_text:
+            errors.append(f"Native launcher must restore hardening variable {name}")
+    if "OPENAI_API_KEY is prohibited" not in launcher_text:
+        errors.append("Native launcher must fail closed if OPENAI_API_KEY is injected")
+
     expected_hardening_env = {
         "DISABLE_ADMIN_UI": "True",
         "NO_DOCS": "True",
