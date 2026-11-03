@@ -687,3 +687,13 @@ def test_native_launcher_clears_inherited_sso_configuration():
     ):
         assert name in text
     assert "SetEnvironmentVariable($ssoName, $null, 'Process')" in text
+
+
+def test_key_management_prefers_native_gateway_env_with_docker_fallback():
+    for name in ('provision-codex-key.ps1', 'revoke-codex-key.ps1'):
+        text = (ROOT / 'scripts/windows' / name).read_text()
+        assert "[string]$RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'CodexSmartRouter')" in text
+        assert "[string]$GatewayEnvPath = ''" in text
+        assert "Join-Path $RuntimeRoot 'router.env'" in text
+        assert "Join-Path $RepoRoot '.env'" in text
+        assert 'Get-DotEnvValue -Path $GatewayEnvPath' in text
